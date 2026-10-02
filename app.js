@@ -4,6 +4,8 @@ let categorias = [];
 let transacoesMes = [];
 let ignoradasSessao = new Set(); // só memória, não LocalStorage
 let chartCat = null, chartEvo = null;
+let valoresVisiveis = false; // padrão: sempre abre oculto
+let ultimoResumo = { te: 0, tg: 0 };
 
 const $ = (id) => document.getElementById(id);
 const BRL = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -191,9 +193,23 @@ function renderTabelas() {
 function renderResumo() {
   const te = transacoesMes.filter(t => t.tipo === 'entrada').reduce((s, t) => s + Number(t.valor), 0);
   const tg = transacoesMes.filter(t => t.tipo === 'gasto').reduce((s, t) => s + Number(t.valor), 0);
-  $('kpiEntradas').textContent = BRL(te);
-  $('kpiGastos').textContent = BRL(tg);
-  $('kpiSaldo').textContent = BRL(te - tg);
+  ultimoResumo = { te, tg };
+  aplicarVisibilidade();
+}
+
+function aplicarVisibilidade() {
+  const { te, tg } = ultimoResumo;
+  if (valoresVisiveis) {
+    $('kpiEntradas').textContent = BRL(te);
+    $('kpiGastos').textContent = BRL(tg);
+    $('kpiSaldo').textContent = BRL(te - tg);
+    $('btnOlho').textContent = '👁️';
+  } else {
+    $('kpiEntradas').textContent = '••••';
+    $('kpiGastos').textContent = '••••';
+    $('kpiSaldo').textContent = '••••';
+    $('btnOlho').textContent = '🙈';
+  }
 }
 
 // ---------- GRÁFICO POR CATEGORIA ----------
@@ -316,6 +332,7 @@ $('selAno').onchange = carregarMes;
 $('btnPrev').onclick = () => { mudarMes(-1); };
 $('btnNext').onclick = () => { mudarMes(1); };
 $('btnHoje').onclick = () => { const h = new Date(); $('selMes').value = h.getMonth() + 1; $('selAno').value = h.getFullYear(); carregarMes(); };
+$('btnOlho').onclick = () => { valoresVisiveis = !valoresVisiveis; aplicarVisibilidade(); };
 function mudarMes(d) {
   let { mes, ano } = mesSelecionado();
   const dt = new Date(ano, mes - 1 + d, 1);
