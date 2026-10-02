@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agenda BRUNA - Financeiro</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>agenda BRUNA <small>Financeiro • 100% online (GitHub + Supabase)</small></h1>
+    <div class="mes-nav">
+      <button class="sec" id="btnPrev" title="Mês anterior">◀</button>
+      <select id="selMes" style="width:auto"></select>
+      <select id="selAno" style="width:auto"></select>
+      <button class="sec" id="btnNext" title="Próximo mês">▶</button>
+      <button class="sec" id="btnHoje">Hoje</button>
+    </div>
+  </div>
+  <div class="wrap"><div id="status">Conectando...</div></div>
+</header>
+
+<main>
+  <div class="cards">
+    <div class="card kpi entrada"><span>Recebido no mês</span><strong id="kpiEntradas">R$ 0,00</strong></div>
+    <div class="card kpi gasto"><span>Gasto no mês</span><strong id="kpiGastos">R$ 0,00</strong></div>
+    <div class="card kpi saldo"><span>Saldo do mês</span><strong id="kpiSaldo">R$ 0,00</strong></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>1) Categorias <span class="badge">obrigatório antes do lançamento</span></h2>
+      <label>Nome (ex: Saúde, Farmácia, Salário)</label>
+      <input id="catNome" placeholder="Ex: Saúde">
+      <label>Tipo</label>
+      <select id="catTipo"><option value="gasto">Gasto</option><option value="entrada">Entrada</option></select>
+      <div style="margin-top:10px" class="row"><button id="btnCat">Cadastrar categoria</button></div>
+      <ul class="lista" id="listaCats"></ul>
+    </div>
+    <div class="card">
+      <h2>2) Nova entrada / gasto</h2>
+      <input type="hidden" id="editId">
+      <div class="row">
+        <div><label>Tipo *</label><select id="trxTipo"><option value="gasto">Gasto</option><option value="entrada">Entrada</option></select></div>
+        <div><label>Categoria *</label><select id="trxCat"></select></div>
+      </div>
+      <label>Nome * (ex: Farmácia Drogasil)</label>
+      <input id="trxNome" placeholder="Nome da entrada ou gasto">
+      <div class="row">
+        <div><label>Data *</label><input type="date" id="trxData"></div>
+        <div><label>Valor R$ *</label><input type="number" id="trxValor" min="0.01" step="0.01" placeholder="0,00"></div>
+      </div>
+      <div class="row">
+        <div><label>Forma pagamento</label>
+          <select id="trxPagto">
+            <option value="">—</option><option>Pix</option><option>Dinheiro</option>
+            <option>Cartão de crédito</option><option>Cartão de débito</option>
+            <option>Boleto</option><option>Transferência</option>
+          </select>
+        </div>
+        <div><label>Observação</label><input id="trxObs" placeholder="Opcional"></div>
+      </div>
+      <label class="check"><input type="checkbox" id="trxFixa"> É fixa? (sugerir todo mês)</label>
+      <div class="row" style="margin-top:12px">
+        <button id="btnSalvar">Salvar</button>
+        <button class="sec" id="btnCancelar" style="display:none">Cancelar edição</button>
+      </div>
+      <p class="foot">Regra: categoria é obrigatória. Se for fixa, no próximo mês ela aparece em “Sugestões fixas” para confirmar data/valor.</p>
+    </div>
+  </div>
+
+  <div class="card" id="cardFixas" style="display:none">
+    <h2>3) Sugestões fixas deste mês</h2>
+    <p class="foot">Estas contas fixas ainda não foram lançadas em <b id="fixasMesLabel"></b>. Confira data e valor e clique em Confirmar.</p>
+    <div id="listaFixas"></div>
+  </div>
+
+  <div class="card">
+    <h2>4) Registros do mês — Entradas x Gastos</h2>
+    <div class="grid2 tabela">
+      <div><h3 style="color:#16a34a">⬆ Entradas</h3><table><thead><tr><th>Data</th><th>Nome / Categoria</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody id="tbodyEntradas"></tbody><tfoot><tr><td colspan="2">Total entradas</td><td class="valor" id="totEntradas"></td><td></td></tr></tfoot></table></div>
+      <div><h3 style="color:#dc2626">⬇ Gastos</h3><table><thead><tr><th>Data</th><th>Nome / Categoria</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody id="tbodyGastos"></tbody><tfoot><tr><td colspan="2">Total gastos</td><td class="valor" id="totGastos"></td><td></td></tr></tfoot></table></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>5a) Gasto por categoria no mês</h2>
+      <div class="row" style="max-width:280px"><select id="selGrafCat"><option value="gasto">Gastos</option><option value="entrada">Entradas</option></select></div>
+      <canvas id="grafCat" height="220"></canvas>
+      <div id="legendaCat" class="foot"></div>
+    </div>
+    <div class="card">
+      <h2>5b) Evolução — últimos 13 meses</h2>
+      <p class="foot">Barra = gasto • Linha = recebido. Conta 13 meses para trás a partir do mês selecionado.</p>
+      <canvas id="grafEvo" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="card foot">
+    Dados 100% no Supabase (nada em LocalStorage). Código no GitHub. Próximos módulos: estudos, trabalho, planner mensal.
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
