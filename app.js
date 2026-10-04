@@ -118,27 +118,92 @@ async function excluirCat(id) {
 }
 
 // ---------- TRANSAÇÕES ----------
+function initParcelas() {
+  const sel = $('trxParcelas');
+  if (!sel) return;
+  sel.innerHTML = '';
+  for (let i = 1; i <= 21; i++) {
+    const o = document.createElement('option');
+    o.value = String(i);
+    o.textContent = i === 1 ? '1x (à vista)' : `${i}x`;
+    sel.appendChild(o);
+  }
+  sel.value = '1';
+}
+function atualizarVisibilidadeParcelas() {
+  const ehCredito = $('trxPagto').value === 'Cartão de crédito';
+  $('divParcelas').style.display = ehCredito ? '' : 'none';
+  if (!ehCredito) $('trxParcelas').value = '1';
+}
+function adicionarMesesMesmoDia(dataStr, n) {
+  // dataStr YYYY-MM-DD + n meses, mesmo dia, trava no último dia do mês
+  const [a, m, d] = dataStr.split('-').map(Number);
+  const alvo = new Date(a, (m - 1) + n, 1);
+  const ano = alvo.getFullYear(), mes = alvo.getMonth() + 1;
+  const ultimo = new Date(ano, mes, 0).getDate();
+  const dia = Math.min(d, ultimo);
+  return `${ano}-${pad2(mes)}-${pad2(dia)}`;
+}
 async function salvarTransacao() {
   const id = $('editId').value || null;
   const tipo = $('trxTipo').value;
   const categoria_id = $('trxCat').value;
-  const nome = $('trxNome').value.trim();
+  const nomeBase = $('trxNome').value.trim();
   const data = $('trxData').value;
-  const valor = Number($('trxValor').value);
-  const fixa = $('trxFixa').checked;
+  const valorTotal = Number($('trxValor').value);
+  let fixa = $('trxFixa').checked;
   const forma_pagamento = $('trxPagto').value || null;
   const observacao = $('trxObs').value.trim() || null;
+  const nParc = forma_pagamento === 'Cartão de crédito' ? (Number($('trxParcelas').value) || 1) : 1;
 
   if (!categoria_id) return alert('Selecione uma categoria já cadastrada (obrigatório).');
-  if (!nome) return alert('Informe o nome da entrada/gasto.');
+  if (!nomeBase) return alert('Informe o nome da entrada/gasto.');
   if (!data) return alert('Informe a data.');
-  if (!(valor > 0)) return alert('Informe um valor maior que zero.');
+  if (!(valorTotal > 0)) return alert('Informe um valor maior que zero.');
+  if (nParc < 1 || nParc > 21) return alert('Parcelas deve ser entre 1x e 21x.');
 
-  const payload = { tipo, categoria_id, nome, data, valor, fixa, forma_pagamento, observacao };
-  let error;
-  if (id) ({ error } = await sb.from('transacoes').update(payload).eq('id', id));
-  else ({ error } = await sb.from('transacoes').insert(payload));
-  if (error) return alert('Erro ao salvar: ' + error.message);
+  // Edição sempre altera só o lançamento clicado (mesmo se for parcela)
+  if (id) {
+    const payload = { tipo, categoria_id, nome: nomeBase, data, valor: valorTotal, fixa, forma_pagamento, observacao };
+    const { error } = await sb.from('transacoes').update(payload).eq('id', id);
+    if (error) return alert('Erro ao salvar: ' + error.message);
+    limparForm();
+    await carregarMes();
+    return;
+  }
+
+  // Novo lançamento 1x (ou não-crédito): comportamento antigo
+  if (nParc === 1) {
+    const payload = { tipo, categoria_id, nome: nomeBase, data, valor: valorTotal, fixa, forma_pagamento, observacao, parcelas_total: 1, parcela_numero: 1 };
+    const { error } = await sb.from('transacoes').insert(payload);
+    if (error) return alert('Erro ao salvar: ' + error.message);
+    limparForm();
+    await carregarMes();
+    return;
+  }
+
+  // Novo parcelado 2x..21x: divide total, cria 1 por mês, cada uma no seu mês
+  if (!confirm(`Confirmar ${nParc}x no cartão? Será criado 1 lançamento no mês atual + ${nParc - 1} nos próximos meses.`)) return;
+  fixa = false; // parcela não entra nas sugestões fixas
+  const totalCents = Math.round(valorTotal * 100);
+  const base = Math.floor(totalCents / nParc);
+  const resto = totalCents - base * nParc;
+  const grupo = (crypto.randomUUID ? crypto.randomUUID() : 'g-' + Date.now());
+  const linhas = [];
+  for (let i = 1; i <= nParc; i++) {
+    const cents = i === nParc ? base + resto : base;
+    linhas.push({
+      tipo, categoria_id,
+      nome: `${nomeBase} ${i}/${nParc}`,
+      data: adicionarMesesMesmoDia(data, i - 1),
+      valor: cents / 100,
+      fixa: false,
+      forma_pagamento, observacao,
+      parcelas_total: nParc, parcela_numero: i, grupo_parcela: grupo
+    });
+  }
+  const { error } = await sb.from('transacoes').insert(linhas);
+  if (error) return alert('Erro ao salvar parcelas: ' + error.message);
   limparForm();
   await carregarMes();
 }
@@ -146,6 +211,8 @@ async function salvarTransacao() {
 function limparForm() {
   $('editId').value = ''; $('trxNome').value = ''; $('trxValor').value = '';
   $('trxObs').value = ''; $('trxFixa').checked = false;
+  if ($('trxParcelas')) $('trxParcelas').value = '1';
+  atualizarVisibilidadeParcelas();
   $('btnCancelar').style.display = 'none';
   $('btnSalvar').textContent = 'Salvar';
 }
@@ -164,7 +231,9 @@ function editarTrx(id) {
 }
 
 async function excluirTrx(id) {
-  if (!confirm('Excluir este lançamento?')) return;
+  const t = transacoesMes.find(x => x.id === id);
+  const extra = t && t.parcelas_total > 1 ? ` (parcela ${t.parcela_numero}/${t.parcelas_total} — só esta será excluída)` : '';
+  if (!confirm(`Excluir este lançamento?${extra}`)) return;
   const { error } = await sb.from('transacoes').delete().eq('id', id);
   if (error) return alert('Erro: ' + error.message);
   await carregarMes();
@@ -322,6 +391,9 @@ function ignorarFixa(i) {
 }
 
 // ---------- EVENTOS ----------
+initParcelas();
+atualizarVisibilidadeParcelas();
+$('trxPagto').onchange = atualizarVisibilidadeParcelas;
 $('btnSalvar').onclick = salvarTransacao;
 $('btnCat').onclick = salvarCategoria;
 $('btnCancelar').onclick = limparForm;
