@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
-<body>
+<body data-tela="financeiro">
 <header>
   <div class="wrap">
     <h1>agenda BRUNA <small>Financeiro • 100% online (GitHub + Supabase)</small></h1>
@@ -21,6 +21,7 @@
       <button class="sec" id="btnOlho" title="Mostrar / ocultar valores">👁️</button>
     </div>
   </div>
+  <div class="wrap"><nav id="appNav" class="appnav"></nav></div>
   <div class="wrap"><div id="status">Conectando...</div></div>
 </header>
 
@@ -108,6 +109,7 @@
 </main>
 
 <script src="config.js"></script>
+<script src="nav.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

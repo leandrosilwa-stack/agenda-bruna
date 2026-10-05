@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agenda BRUNA - Pendências</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.cat-grid{grid-template-columns:1fr}}
+.pend-lista{max-height:300px;overflow-y:auto}
+.pend-item{display:flex;gap:8px;align-items:flex-start;background:#f6f8fc;border:1px solid #e6ebf4;padding:8px 10px;border-radius:8px;font-size:14px;margin-top:6px}
+.pend-item span{flex:1}
+.pend-item .acoes{display:flex;gap:4px;white-space:nowrap}
+.concluida span{text-decoration:line-through;opacity:.7}
+</style>
+</head>
+<body data-tela="pendencias">
+<header>
+  <div class="wrap">
+    <h1>agenda BRUNA <small>Pendências • to do list online</small></h1>
+    <div class="mes-nav"><span style="opacity:.8">✅ 5 categorias • concluir vai para o final</span></div>
+  </div>
+  <div class="wrap"><nav id="appNav" class="appnav"></nav></div>
+  <div class="wrap"><div id="status">Conectando...</div></div>
+</header>
+<main>
+  <div class="cat-grid" id="cats"></div>
+  <div class="card">
+    <h2>Concluídos ✅ <span class="badge" id="totConc">0</span></h2>
+    <p class="foot">Ao concluir, a atividade sai da categoria e vem para cá.</p>
+    <div id="listaConc"></div>
+  </div>
+</main>
+<script src="config.js"></script>
+<script src="nav.js"></script>
+<script src="pendencias.js"></script>
+</body>
+</html>
