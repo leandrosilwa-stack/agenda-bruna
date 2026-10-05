@@ -245,9 +245,10 @@ function renderTabelas() {
   const gas = transacoesMes.filter(t => t.tipo === 'gasto');
   const linha = (t) => {
     const cat = t.categorias?.nome || '';
+    const mostrar = t.tipo === 'entrada' ? valoresVisiveis : true;
     return `<tr><td>${t.data.slice(8, 10)}/${t.data.slice(5, 7)}</td>
       <td><b>${t.nome}</b><br><span class="foot">${cat}${t.forma_pagamento ? ' • ' + t.forma_pagamento : ''}${t.fixa ? ' • 🔁 fixa' : ''}</span></td>
-      <td class="valor">${BRL(t.valor)}</td>
+      <td class="valor">${mostrar ? BRL(t.valor) : '••••'}</td>
       <td><button class="ghost" onclick="editarTrx('${t.id}')">✏️</button>
       <button class="ghost" onclick="excluirTrx('${t.id}')">🗑️</button></td></tr>`;
   };
@@ -255,7 +256,7 @@ function renderTabelas() {
   $('tbodyGastos').innerHTML = gas.map(linha).join('') || '<tr><td colspan="4" class="foot">Sem gastos neste mês.</td></tr>';
   const te = ent.reduce((s, t) => s + Number(t.valor), 0);
   const tg = gas.reduce((s, t) => s + Number(t.valor), 0);
-  $('totEntradas').textContent = BRL(te);
+  $('totEntradas').textContent = valoresVisiveis ? BRL(te) : '••••';
   $('totGastos').textContent = BRL(tg);
 }
 
@@ -404,7 +405,7 @@ $('selAno').onchange = carregarMes;
 $('btnPrev').onclick = () => { mudarMes(-1); };
 $('btnNext').onclick = () => { mudarMes(1); };
 $('btnHoje').onclick = () => { const h = new Date(); $('selMes').value = h.getMonth() + 1; $('selAno').value = h.getFullYear(); carregarMes(); };
-$('btnOlho').onclick = () => { valoresVisiveis = !valoresVisiveis; aplicarVisibilidade(); };
+$('btnOlho').onclick = () => { valoresVisiveis = !valoresVisiveis; aplicarVisibilidade(); renderTabelas(); };
 function mudarMes(d) {
   let { mes, ano } = mesSelecionado();
   const dt = new Date(ano, mes - 1 + d, 1);
