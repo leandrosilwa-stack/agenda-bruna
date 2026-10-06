@@ -1,7 +1,7 @@
-// Pendências - CRUD + concluir (sem LocalStorage, tudo Supabase)
+// Pendências - categorias editáveis + atividades (Supabase, sem LocalStorage)
 let sb = null;
 let itens = [];
-const CATS = { 1: '1 - Prioridades', 2: '2 - Saúde & família', 3: '3 - Financeiro & burocracia', 4: '4 - Casa, compras & projetos', 5: '5 - Evento & planejamento' };
+let cats = [];
 const $ = (id) => document.getElementById(id);
 
 function conectar() {
@@ -13,25 +13,33 @@ function conectar() {
 }
 
 async function carregar() {
-  const { data, error } = await sb.from('pendencias').select('*').order('created_at');
-  if (error) { $('status').textContent = 'Erro: ' + error.message; return; }
-  itens = data || [];
+  const rc = await sb.from('pendencias_categorias').select('*').order('id');
+  if (rc.error) { $('status').textContent = 'Rode a migration de categorias: ' + rc.error.message; return; }
+  cats = rc.data || [];
+  const ri = await sb.from('pendencias').select('*').order('created_at');
+  if (ri.error) { $('status').textContent = 'Erro: ' + ri.error.message; return; }
+  itens = ri.data || [];
+  // compat: atividades com categoria antiga que não existe mais
   render();
 }
+function nomeCat(id) { return (cats.find(c => c.id === id) || {}).nome || `Cat ${id}`; }
 
 function render() {
-  const box = $('cats');
-  box.innerHTML = Object.entries(CATS).map(([id, nome]) => {
-    const abertos = itens.filter(i => i.categoria === Number(id) && !i.concluida);
-    return `<div class="card"><h2>${nome} <span class="badge">${abertos.length}</span></h2>
-      <div class="row"><input id="in-${id}" placeholder="Nova atividade..."><button onclick="adicionar(${id})">＋</button></div>
+  $('cats').innerHTML = cats.map(c => {
+    const abertos = itens.filter(i => i.categoria === c.id && !i.concluida);
+    return `<div class="card"><h2>${esc(c.nome)} <span class="badge">${abertos.length}</span></h2>
+      <div class="acoes" style="display:flex;gap:4px;margin-bottom:6px">
+        <button class="ghost" onclick="editarCat(${c.id})">✏️ categoria</button>
+        <button class="ghost" onclick="excluirCat(${c.id})">🗑️ categoria</button>
+      </div>
+      <div class="row"><input id="in-${c.id}" placeholder="Nova atividade em ${esc(c.nome)}..."><button onclick="adicionar(${c.id})">＋</button></div>
       <div class="pend-lista">${abertos.map(linhaAberta).join('') || '<p class="foot">Nada pendente 🎉</p>'}</div>
     </div>`;
-  }).join('');
+  }).join('') || '<div class="card">Crie a primeira categoria acima.</div>';
 
   const conc = itens.filter(i => i.concluida).sort((a, b) => new Date(b.concluida_em || b.created_at) - new Date(a.concluida_em || a.created_at));
   $('totConc').textContent = conc.length;
-  $('listaConc').innerHTML = conc.map(t => `<div class="pend-item concluida"><span><span class="badge">${CATS[t.categoria]}</span> ${esc(t.titulo)}</span>
+  $('listaConc').innerHTML = conc.map(t => `<div class="pend-item concluida"><span><span class="badge">${esc(nomeCat(t.categoria))}</span> ${esc(t.titulo)}</span>
     <span class="acoes"><button class="ghost" onclick="reabrir('${t.id}')">↩ reabrir</button>
     <button class="ghost" onclick="excluir('${t.id}')">🗑️</button></span></div>`).join('')
     || '<p class="foot">Nenhuma concluída ainda.</p>';
@@ -45,9 +53,36 @@ function linhaAberta(t) {
 }
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+// ---- categorias ----
+async function adicionarCat() {
+  const nome = $('inNovaCat').value.trim();
+  if (!nome) return alert('Digite o nome da categoria.');
+  const nextId = cats.length ? Math.max(...cats.map(c => c.id)) + 1 : 1;
+  const { error } = await sb.from('pendencias_categorias').insert({ id: nextId, nome });
+  if (error) return alert('Erro: ' + error.message);
+  $('inNovaCat').value = '';
+  await carregar();
+}
+async function editarCat(id) {
+  const c = cats.find(x => x.id === id);
+  const novo = prompt('Editar categoria:', c.nome);
+  if (novo === null) return;
+  if (!novo.trim()) return alert('Nome vazio.');
+  const { error } = await sb.from('pendencias_categorias').update({ nome: novo.trim() }).eq('id', id);
+  if (error) return alert('Erro: ' + error.message);
+  await carregar();
+}
+async function excluirCat(id) {
+  if (itens.some(i => i.categoria === id)) return alert('Categoria com atividades (pendentes ou concluídas). Mova/exclua as atividades antes.');
+  if (!confirm(`Excluir categoria "${nomeCat(id)}"?`)) return;
+  const { error } = await sb.from('pendencias_categorias').delete().eq('id', id);
+  if (error) return alert('Erro: ' + error.message);
+  await carregar();
+}
+
+// ---- atividades ----
 async function adicionar(cat) {
-  const inp = $(`in-${cat}`);
-  const titulo = inp.value.trim();
+  const titulo = $(`in-${cat}`).value.trim();
   if (!titulo) return alert('Digite a atividade.');
   const { error } = await sb.from('pendencias').insert({ categoria: cat, titulo });
   if (error) return alert('Erro: ' + error.message);
@@ -81,11 +116,11 @@ async function excluir(id) {
 
 window.adicionar = adicionar; window.concluir = concluir;
 window.reabrir = reabrir; window.editar = editar; window.excluir = excluir;
+window.adicionarCat = adicionarCat; window.editarCat = editarCat; window.excluirCat = excluirCat;
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.id && e.target.id.startsWith('in-')) {
-    adicionar(Number(e.target.id.replace('in-', '')));
-  }
+  if (e.key === 'Enter' && e.target.id === 'inNovaCat') adicionarCat();
+  if (e.key === 'Enter' && e.target.id && e.target.id.startsWith('in-')) adicionar(Number(e.target.id.replace('in-', '')));
 });
 
 if (conectar()) carregar();
