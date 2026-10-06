@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>agenda BRUNA - Planner</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.folha{background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(20,30,60,.1);padding:18px;max-width:1000px;margin:0 auto}
+.cal-head{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px}
+.dow{font-size:12px;font-weight:700;color:#667085;text-align:center}
+.dia{min-height:110px;border:1px solid #e6ebf4;border-radius:8px;padding:6px;background:#fbfcff;display:flex;flex-direction:column;gap:4px}
+.dia.outro{opacity:.4;background:#f4f6fb}
+.dia .num{font-weight:800;font-size:13px}
+.ev{font-size:12px;border-radius:6px;padding:3px 6px;cursor:pointer;border-left:4px solid #999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#eef2ff}
+.ev.alta{border-color:#dc2626}.ev.media{border-color:#f59e0b}.ev.baixa{border-color:#16a34a}
+.ev.feito{text-decoration:line-through;opacity:.65}
+.ev .st{opacity:.7}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  header,.no-print{display:none !important}
+  body{background:#fff}
+  main{padding:0}
+  .folha{box-shadow:none;max-width:none}
+}
+@media(max-width:700px){.dia{min-height:80px}}
+</style>
+</head>
+<body data-tela="planner">
+<header>
+  <div class="wrap">
+    <h1>agenda BRUNA <small>Planner mensal • sem vínculo com Pendências</small></h1>
+    <div class="mes-nav">
+      <button class="sec" id="btnPrev">◀</button>
+      <b id="mesLabel"></b>
+      <button class="sec" id="btnNext">▶</button>
+      <button class="sec" id="btnHoje">Hoje</button>
+      <button class="sec no-print" onclick="window.print()">🖨️ Imprimir A4</button>
+    </div>
+  </div>
+  <div class="wrap"><nav id="appNav" class="appnav"></nav></div>
+  <div class="wrap"><div id="status">Conectando...</div></div>
+</header>
+<main>
+  <div class="card no-print">
+    <h2>Novo / editar evento</h2>
+    <input type="hidden" id="editId">
+    <label>Título *</label><input id="evTitulo" placeholder="Ex: Aniversário Bruna">
+    <div class="row">
+      <div><label>Data *</label><input type="date" id="evData"></div>
+      <div><label>Status</label><select id="evStatus"><option value="a_fazer">A fazer</option><option value="fazendo">Fazendo</option><option value="feito">Feito</option></select></div>
+      <div><label>Prioridade</label><select id="evPrior"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select></div>
+    </div>
+    <label>Observação</label><input id="evObs" placeholder="Opcional">
+    <div class="row" style="margin-top:10px"><button id="btnSalvar">Salvar</button><button class="sec" id="btnExcluir" style="display:none">Excluir</button><button class="sec" id="btnCancelar" style="display:none">Cancelar</button></div>
+  </div>
+  <div class="folha">
+    <div class="cal-head"><h2 id="folhaTitulo" style="margin:0"></h2><span class="foot" id="totLabel"></span></div>
+    <div class="cal-grid" id="dowRow"></div>
+    <div class="cal-grid" id="calGrid" style="margin-top:6px"></div>
+  </div>
+</main>
+<script src="config.js"></script>
+<script src="nav.js"></script>
+<script src="planner.js"></script>
+</body>
+</html>

@@ -2,6 +2,7 @@
 const TELAS = [
   { id: 'financeiro', label: '💰 Financeiro', href: 'index.html' },
   { id: 'pendencias', label: '✅ Pendências', href: 'pendencias.html' },
+  { id: 'planner', label: '📅 Planner', href: 'planner.html' },
   // Ex futuro: { id: 'estudos', label: '📚 Estudos', href: 'estudos.html' },
 ];
 
