@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Saúde Financeira — Semestral</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
+<style>
+  *{scrollbar-width:thin; scrollbar-color:#cbd5e1 transparent}
+  ::-webkit-scrollbar{width:6px;height:6px} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px}
+  .nav-active{ background:linear-gradient(135deg,#0ea5e9 0%,#0284c7 100%); color:white; box-shadow:0 4px 14px rgba(14,165,233,.25), 0 1px 3px rgba(14,165,233,.2); }
+  .nav-idle{ color:#64748b; }
+  .nav-idle:hover{ background:#f1f5f9; color:#0f172a; transform:translateX(1px)}
+  .card{ background:white; border:1px solid rgba(226,232,240,.9); box-shadow:0 1px 3px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04); border-radius:20px; }
+  .card-hover{ transition: all .18s cubic-bezier(.2,.8,.2,1); }
+  .card-hover:hover{ transform:translateY(-1px); box-shadow:0 4px 12px rgba(15,23,42,.06), 0 12px 32px rgba(15,23,42,.06); border-color:#e2e8f0; }
+  .saldo-positivo{ background:#fef2f2; border-color:#fecaca; color:#dc2626; }
+  .saldo-zero{ background:#f0fdf4; border-color:#bbf7d0; color:#15803d; }
+  .saldo-negativo{ background:#ecfdf5; border-color:#a7f3d0; color:#047857; }
+  .shimmer{ position:relative; overflow:hidden; }
+  .shimmer:after{ content:""; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent); transform:translateX(-100%); animation:shimmer 2.2s infinite; }
+  @keyframes shimmer{ 100%{ transform:translateX(100%) } }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:translateY(0)} }
+  .fade-in{ animation:fadeIn .22s ease-out both; }
+  .ocr-line{ transition: all .15s }
+  .ocr-line:hover{ background:#f8fafc }
+  .input-focus:focus{ box-shadow:0 0 0 3px rgba(14,165,233,.15); border-color:#7dd3fc!important; }
+  .month-card{ transition: all .18s cubic-bezier(.2,.8,.2,1) }
+  .month-card:hover{ transform:translateY(-2px) }
+  .month-card:active{ transform:translateY(0) scale(.99) }
+  @media print{ .no-print{display:none!important} }
+</style>
+</head>
+<body class="bg-[#f8fafc] text-slate-800 font-sans min-h-screen selection:bg-sky-100 selection:text-sky-900">
+<!-- subtle radial bg -->
+<div class="fixed inset-0 pointer-events-none -z-10" style="background:radial-gradient(900px 500px at 15% -10%, rgba(14,165,233,.07), transparent 60%), radial-gradient(800px 400px at 90% 0%, rgba(139,92,246,.05), transparent 60%)"></div>
+
+<!-- Mobile top -->
+<div class="lg:hidden sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/70 flex items-center justify-between px-4 py-3">
+  <div class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-heart-pulse text-sm"></i></div>
+    <div><p class="font-black text-[15px] leading-none">Saúde Financeira</p><p class="text-[11px] text-slate-500 font-medium">2026.1 • 2026.2</p></div>
+  </div>
+  <button onclick="toggleSidebar()" class="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow"><i class="fa-solid fa-bars text-xs"></i></button>
+</div>
+
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed lg:sticky top-0 z-30 w-[286px] h-[100dvh] bg-white/95 backdrop-blur-xl border-r border-slate-200/70 flex flex-col lg:translate-x-0 -translate-x-full transition-transform duration-300 shadow-[0_0_0_1px_rgba(15,23,42,0.03),0_8px_40px_rgba(15,23,42,0.08)] lg:shadow-none">
+    <div class="px-6 pt-7 pb-5 hidden lg:block">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white text-[18px] shadow-lg shadow-sky-500/20 ring-1 ring-black/5"><i class="fa-solid fa-heart-pulse"></i></div>
+        <div class="min-w-0">
+          <h1 class="font-black tracking-tight leading-none text-[17px]">Saúde Financeira</h1>
+          <p class="text-xs font-medium text-slate-500 mt-0.5">Gastos • Auxílio • Semestre</p>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Dados online (Supabase) • OCR no dispositivo
+      </div>
+    </div>
+
+    <nav class="flex-1 px-3 py-3 space-y-1 overflow-auto">
+      <p class="px-3 pt-2 pb-2 text-[11px] font-extrabold tracking-widest text-slate-400 uppercase">Navegação</p>
+      <button id="nav-semestral" onclick="trocarAba('semestral')" class="nav-active w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-left transition-all">
+        <span class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><i class="fa-solid fa-chart-column text-sm"></i></span>
+        <span class="leading-tight">Visão Semestral <span class="block text-xs font-medium opacity-80">2026.1 • 2026.2</span></span>
+        <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-60 hidden group-[.nav-active]:block"></i>
+      </button>
+      <button id="nav-mensal" onclick="trocarAba('mensal')" class="nav-idle w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-left transition-all">
+        <span class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-calendar-days text-sm"></i></span>
+        <span class="leading-tight">Lançamentos <span class="block text-xs font-medium opacity-60">Mês a mês</span></span>
+      </button>
+      <button id="nav-auxilio" onclick="trocarAba('auxilio')" class="nav-idle w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-left transition-all">
+        <span class="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-hand-holding-dollar text-sm"></i></span>
+        <span class="leading-tight">Auxílio Saúde <span class="block text-xs font-medium opacity-60">Histórico por mês</span></span>
+      </button>
+
+      <div class="mx-3 my-4 h-px bg-slate-100"></div>
+
+      <p class="px-3 text-[11px] font-extrabold tracking-widest text-slate-400 uppercase mb-2">Ano</p>
+      <div class="mx-1 bg-slate-50 border border-slate-200 rounded-2xl p-2">
+        <div class="flex items-center gap-2">
+          <button onclick="mudarAno(-1)" class="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center shadow-sm transition active:scale-95"><i class="fa-solid fa-chevron-left text-[11px]"></i></button>
+          <span id="anoSidebar" class="flex-1 text-center font-black text-lg tracking-tight">2026</span>
+          <button onclick="mudarAno(1)" class="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center shadow-sm transition active:scale-95"><i class="fa-solid fa-chevron-right text-[11px]"></i></button>
+        </div>
+        <button onclick="irParaHoje()" class="mt-2 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-black text-white text-xs font-extrabold tracking-wide transition active:scale-[0.98]"><i class="fa-solid fa-clock-rotate-left mr-1.5"></i>Ir para hoje</button>
+      </div>
+
+      <div class="mt-4 mx-1 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 p-3.5">
+        <p class="text-xs font-extrabold text-amber-800 flex items-center gap-1.5"><i class="fa-solid fa-lightbulb"></i> Regra do saldo</p>
+        <p class="text-xs leading-relaxed text-amber-800/80 mt-1"><span class="font-bold text-red-600">Positivo = sobrou (ruim)</span> • <span class="font-bold text-emerald-700">Zerado/negativo = consumido (bom)</span>. Meta: zerar o auxílio.</p>
+      </div>
+
+      <a href="../index.html" class="mx-1 mt-4 flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all no-print">
+        <span class="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0"><i class="fa-solid fa-arrow-left text-sm"></i></span>
+        <span class="leading-tight">Voltar para agenda</span>
+      </a>
+    </nav>
+
+    <div class="p-3 border-t border-slate-200/70 space-y-2.5 no-print bg-slate-50/50">
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="exportarJSON()" class="py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-extrabold hover:bg-slate-50 hover:border-slate-300 transition shadow-sm active:scale-[0.98]"><i class="fa-solid fa-download mr-1 text-slate-500"></i> Exportar</button>
+        <label class="py-2.5 rounded-xl bg-white border border-slate-200 text-xs font-extrabold hover:bg-slate-50 hover:border-slate-300 transition shadow-sm text-center cursor-pointer active:scale-[0.98]">
+          <i class="fa-solid fa-upload mr-1 text-slate-500"></i> Importar
+          <input type="file" accept=".json" class="hidden" onchange="importarJSON(event)">
+        </label>
+      </div>
+      <button onclick="abrirZerarControle()" class="w-full py-2.5 rounded-xl bg-white border border-red-200 text-red-600 text-xs font-black hover:bg-red-50 hover:border-red-300 transition shadow-sm active:scale-[0.98] flex items-center justify-center gap-1.5"><i class="fa-solid fa-trash-can"></i> Zerar controle</button>
+      <p class="text-[11px] leading-tight text-slate-400 text-center font-medium">Dados salvos automaticamente<br><span class="text-slate-500">Semestres 2026.1 (Jan-Jun) • 2026.2 (Jul-Dez)</span></p>
+    </div>
+  </aside>
+
+  <div id="overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-20 hidden lg:hidden"></div>
+
+  <!-- Main -->
+  <main class="flex-1 min-w-0">
+    <div class="max-w-[1180px] mx-auto px-4 lg:px-8 py-6 lg:py-8 space-y-6">
+
+      <!-- ABA SEMESTRAL -->
+      <section id="aba-semestral" class="space-y-5 fade-in">
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-sky-50 border border-sky-200 text-[11px] font-extrabold tracking-widest text-sky-700 uppercase"><span class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span> Visão semestral</div>
+            <h2 class="text-[26px] lg:text-[28px] font-black tracking-tight mt-2 leading-none">Seus semestres em foco</h2>
+            <p class="text-sm text-slate-500 mt-1.5 max-w-[680px] leading-relaxed"><b class="text-slate-700">2026.1</b> = Jan–Jun • <b class="text-slate-700">2026.2</b> = Jul–Dez • Saldo = Auxílio − Gastos • <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 font-bold text-xs">positivo = sobrou</span> <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs">zerado/negativo = consumido</span></p>
+          </div>
+          <div class="hidden sm:flex items-center gap-2 text-xs font-semibold">
+            <span class="px-3 py-2 rounded-full bg-white border border-slate-200 shadow-sm"><span class="w-2 h-2 rounded-full bg-sky-500 inline-block mr-1.5"></span> Gasto</span>
+            <span class="px-3 py-2 rounded-full bg-white border border-slate-200 shadow-sm"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block mr-1.5"></span> Auxílio</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+          <!-- S1 -->
+          <div class="card overflow-hidden card-hover">
+            <div class="relative px-5 py-4 bg-gradient-to-br from-sky-500 via-sky-500 to-blue-600 text-white overflow-hidden">
+              <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-[1px]"></div>
+              <div class="absolute -right-6 -bottom-8 w-28 h-28 bg-white/10 rounded-full"></div>
+              <div class="relative flex items-center justify-between">
+                <div>
+                  <p id="sem1Titulo" class="font-black text-[18px] tracking-tight leading-none">2026.1</p>
+                  <p class="text-xs font-medium text-sky-100 mt-1 flex items-center gap-1.5"><i class="fa-regular fa-calendar"></i> Janeiro a Junho • 6 meses</p>
+                </div>
+                <span id="sem1Badge" class="shimmer px-3 py-1.5 rounded-full text-xs font-black border bg-white text-sky-600 border-white shadow-sm">—</span>
+              </div>
+            </div>
+            <div class="p-5 space-y-4">
+              <div class="grid grid-cols-3 gap-3">
+                <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
+                  <p class="text-[11px] font-extrabold tracking-widest text-slate-500 uppercase flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up text-slate-400"></i> Gasto</p>
+                  <p id="sem1Gasto" class="font-black text-[17px] tracking-tight mt-1">R$ 0,00</p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
+                  <p class="text-[11px] font-extrabold tracking-widest text-slate-500 uppercase flex items-center gap-1"><i class="fa-solid fa-hand-holding-dollar text-slate-400"></i> Auxílio</p>
+                  <p id="sem1Auxilio" class="font-black text-[17px] tracking-tight mt-1">R$ 0,00</p>
+                  <p class="text-[11px] font-medium text-slate-500">soma 6 meses</p>
+                </div>
+                <div id="sem1SaldoCard" class="rounded-2xl border p-3.5 saldo-zero transition-colors">
+                  <p class="text-[11px] font-extrabold tracking-widest uppercase opacity-60">Saldo</p>
+                  <p id="sem1Saldo" class="font-black text-[17px] tracking-tight mt-1">R$ 0,00</p>
+                  <p id="sem1SaldoLeg" class="text-[11px] font-bold leading-tight mt-0.5">—</p>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-bold tracking-wide text-slate-500 uppercase"><span>Consumo do auxílio</span><span id="sem1Pct" class="text-slate-700">0%</span></div>
+                <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden flex p-0.5 gap-0.5">
+                  <div id="sem1BarGasto" class="h-full bg-gradient-to-r from-sky-500 to-blue-500 rounded-full transition-all duration-700" style="width:0%"></div>
+                  <div id="sem1BarSobra" class="h-full bg-red-400 rounded-full transition-all duration-700" style="width:0%"></div>
+                </div>
+              </div>
+              <div id="sem1Meses" class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-xs"></div>
+            </div>
+          </div>
+
+          <!-- S2 -->
+          <div class="card overflow-hidden card-hover">
+            <div class="relative px-5 py-4 bg-gradient-to-br from-violet-500 via-violet-500 to-indigo-600 text-white overflow-hidden">
+              <div class="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full"></div>
+              <div class="absolute -right-6 -bottom-8 w-28 h-28 bg-white/10 rounded-full"></div>
+              <div class="relative flex items-center justify-between">
+                <div>
+                  <p id="sem2Titulo" class="font-black text-[18px] tracking-tight leading-none">2026.2</p>
+                  <p class="text-xs font-medium text-violet-100 mt-1 flex items-center gap-1.5"><i class="fa-regular fa-calendar"></i> Julho a Dezembro • 6 meses</p>
+                </div>
+                <span id="sem2Badge" class="shimmer px-3 py-1.5 rounded-full text-xs font-black border bg-white text-violet-600 border-white shadow-sm">—</span>
+              </div>
+            </div>
+            <div class="p-5 space-y-4">
+              <div class="grid grid-cols-3 gap-3">
+                <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
+                  <p class="text-[11px] font-extrabold tracking-widest text-slate-500 uppercase flex items-center gap-1"><i class="fa-solid fa-arrow-trend-up text-slate-400"></i> Gasto</p>
+                  <p id="sem2Gasto" class="font-black text-[17px] tracking-tight mt-1">R$ 0,00</p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3.5">
+                  <p class="text-[11px] font-extrabold tracking-widest text-slate-500 uppercase flex items-center gap-1"><i class="fa-solid fa-hand-holding-dollar text-slate-400"></i> Auxílio</p>
+                  <p id="sem2Auxilio" class="font-black text-[17px] tracking-tight mt-1">R$ 0,00</p>
+                  <p class="text-[11px] font-medium text-slate-500">soma 6 meses</p>
+                </div>
+                <div id="sem2SaldoCard" class="rounded-2xl border p-3.5 saldo-zero transition-colors">
+                  <p class="text-[11px] font-extrabold tracking-widest uppercase opacity-60">Saldo</p>
+                  <p id="sem2Saldo" class="font-black text-[17px] tracking-tight mt-1">R$ 0,00</p>
+                  <p id="sem2SaldoLeg" class="text-[11px] font-bold leading-tight mt-0.5">—</p>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] font-bold tracking-wide text-slate-500 uppercase"><span>Consumo do auxílio</span><span id="sem2Pct" class="text-slate-700">0%</span></div>
+                <div class="h-2.5 bg-slate-100 rounded-full overflow-hidden flex p-0.5 gap-0.5">
+                  <div id="sem2BarGasto" class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-700" style="width:0%"></div>
+                  <div id="sem2BarSobra" class="h-full bg-red-400 rounded-full transition-all duration-700" style="width:0%"></div>
+                </div>
+              </div>
+              <div id="sem2Meses" class="grid grid-cols-3 sm:grid-cols-6 gap-2 text-xs"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+          <div class="card p-4 lg:p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="font-extrabold tracking-tight flex items-center gap-2 text-sm"><span class="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center text-xs"><i class="fa-solid fa-chart-line"></i></span> <span id="grafSem1Titulo" class="text-sky-600">2026.1</span> <span class="text-slate-400 font-semibold">• Jan–Jun</span></h3>
+              <span class="text-xs font-bold px-2 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700">6 meses</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5 mt-3 text-[11px] font-bold">
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700"><span class="w-2 h-2 rounded bg-sky-500"></span>Gastos</span>
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700"><span class="w-2 h-2 rounded bg-emerald-500"></span>Auxílio</span>
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-600"><span class="w-2 h-2 rounded-full border-2 border-amber-500 bg-white"></span>Saldo</span>
+            </div>
+            <div class="mt-3 h-[260px]"><canvas id="graficoSem1"></canvas></div>
+            <div class="mt-2 flex gap-1.5 text-[11px] font-medium">
+              <span class="px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700">↑ sobrou</span>
+              <span class="px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">↓ consumido</span>
+            </div>
+          </div>
+          <div class="card p-4 lg:p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h3 class="font-extrabold tracking-tight flex items-center gap-2 text-sm"><span class="w-8 h-8 rounded-xl bg-violet-500 text-white flex items-center justify-center text-xs"><i class="fa-solid fa-chart-line"></i></span> <span id="grafSem2Titulo" class="text-violet-600">2026.2</span> <span class="text-slate-400 font-semibold">• Jul–Dez</span></h3>
+              <span class="text-xs font-bold px-2 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700">6 meses</span>
+            </div>
+            <div class="flex flex-wrap items-center gap-1.5 mt-3 text-[11px] font-bold">
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-sky-50 border border-sky-200 text-sky-700"><span class="w-2 h-2 rounded bg-sky-500"></span>Gastos</span>
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700"><span class="w-2 h-2 rounded bg-emerald-500"></span>Auxílio</span>
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-600"><span class="w-2 h-2 rounded-full border-2 border-amber-500 bg-white"></span>Saldo</span>
+            </div>
+            <div class="mt-3 h-[260px]"><canvas id="graficoSem2"></canvas></div>
+            <div class="mt-2 flex gap-1.5 text-[11px] font-medium">
+              <span class="px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700">↑ sobrou</span>
+              <span class="px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700">↓ consumido</span>
+            </div>
+          </div>
+        </div>
+        <!-- hidden keep for compat -->
+        <canvas id="graficoAno" class="hidden"></canvas>
+        <span id="grafAnoLabel" class="hidden">2026</span>
+      </section>
+
+      <!-- ABA MENSAL -->
+      <section id="aba-mensal" class="space-y-4 hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 text-white text-[11px] font-extrabold tracking-widest uppercase"><i class="fa-solid fa-calendar-days"></i> Lançamentos</div>
+            <h2 class="text-[26px] font-black tracking-tight mt-2 leading-none">Mês a mês</h2>
+            <p class="text-sm text-slate-500 mt-1.5">Toque no mês para detalhar. <span class="text-red-600 font-bold">Saldo positivo = sobrou (vermelho)</span> — precisa zerar.</p>
+          </div>
+          <div id="resumoMesAtual" class="card px-4 py-3.5 min-w-[300px] flex items-center gap-4">
+            <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-receipt"></i></div>
+            <div class="min-w-0 flex-1">
+              <p id="resumoMesTitulo" class="text-xs font-extrabold tracking-widest text-slate-500 uppercase truncate">—</p>
+              <p id="resumoMesTotal" class="text-lg font-black tracking-tight leading-none mt-1">R$ 0,00</p>
+            </div>
+            <span id="resumoMesSaldo" class="text-xs font-black px-3 py-1.5 rounded-full border whitespace-nowrap">Saldo: R$ 0,00</span>
+          </div>
+        </div>
+
+        <div id="gridMeses" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5"></div>
+
+        <div id="detalheMes" class="card overflow-hidden">
+          <div class="relative bg-slate-900 text-white px-5 lg:px-6 py-5 flex flex-wrap items-center justify-between gap-4 overflow-hidden">
+            <div class="absolute inset-0 opacity-[0.06]" style="background-image:radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size:20px 20px"></div>
+            <div class="relative">
+              <p class="text-[11px] tracking-widest text-slate-400 uppercase font-extrabold">Detalhamento</p>
+              <h3 id="detalheTitulo" class="text-xl font-black tracking-tight">Janeiro de 2026</h3>
+              <p id="detalheAuxilioInfo" class="text-xs font-medium text-sky-300 mt-1 flex items-center gap-1.5"><i class="fa-solid fa-hand-holding-dollar"></i> Auxílio do mês: R$ 0,00</p>
+            </div>
+            <div class="relative text-right bg-white/10 backdrop-blur rounded-2xl px-5 py-3 border border-white/10">
+              <p class="text-[11px] tracking-widest text-slate-300 uppercase font-bold">Total do mês</p>
+              <p id="detalheTotal" class="text-2xl font-black tracking-tight">R$ 0,00</p>
+              <p id="detalheSaldo" class="text-xs font-black px-3 py-1 rounded-full border inline-block mt-1.5 bg-white">Saldo: R$ 0,00</p>
+            </div>
+          </div>
+
+          <div class="mx-4 mt-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2.5 text-xs leading-relaxed text-amber-800">
+            <span class="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5"><i class="fa-solid fa-circle-info text-xs"></i></span>
+            <span><b>Como ler o saldo:</b> <span class="px-1.5 py-0.5 rounded bg-red-100 border border-red-200 text-red-700 font-bold">positivo = sobrou (ruim)</span> — você ainda tem auxílio para consumir. <span class="px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold">zerado/negativo = OK (bom)</span>.</span>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+            <div class="space-y-4">
+              <div class="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                <div class="px-4 py-3 bg-gradient-to-r from-sky-50 to-blue-50 border-b border-slate-200 flex items-center justify-between">
+                  <h4 class="font-extrabold text-sm flex items-center gap-2.5 tracking-tight"><span class="w-8 h-8 rounded-xl bg-sky-500 text-white flex items-center justify-center text-xs shadow-sm"><i class="fa-solid fa-user-doctor"></i></span> Convênio Particular</h4>
+                  <span id="total-convenio_particular" class="text-sm font-black px-2.5 py-1 rounded-full bg-white border border-sky-200 text-sky-700">R$ 0,00</span>
+                </div>
+                <div id="lista-convenio_particular" class="p-3 space-y-2 max-h-[280px] overflow-auto"></div>
+                <form onsubmit="adicionarGasto(event,'convenio_particular')" class="p-3 bg-slate-50 border-t border-slate-200 flex gap-2">
+                  <input required placeholder="Descrição" class="input-focus flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white placeholder:text-slate-400">
+                  <input required type="number" step="0.01" min="0" placeholder="R$" class="input-focus w-28 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white">
+                  <button class="px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-sm font-black shadow-sm shadow-sky-500/20 transition active:scale-95"><i class="fa-solid fa-plus"></i></button>
+                </form>
+              </div>
+              <div class="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                <div class="px-4 py-3 bg-gradient-to-r from-violet-50 to-indigo-50 border-b border-slate-200 flex items-center justify-between">
+                  <h4 class="font-extrabold text-sm flex items-center gap-2.5 tracking-tight"><span class="w-8 h-8 rounded-xl bg-violet-500 text-white flex items-center justify-center text-xs shadow-sm"><i class="fa-solid fa-users"></i></span> Convênio de Terceiros</h4>
+                  <span id="total-convenio_terceiros" class="text-sm font-black px-2.5 py-1 rounded-full bg-white border border-violet-200 text-violet-700">R$ 0,00</span>
+                </div>
+                <div id="lista-convenio_terceiros" class="p-3 space-y-2 max-h-[280px] overflow-auto"></div>
+                <form onsubmit="adicionarGasto(event,'convenio_terceiros')" class="p-3 bg-slate-50 border-t border-slate-200 flex gap-2">
+                  <input required placeholder="Ex: dependente" class="input-focus flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white">
+                  <input required type="number" step="0.01" min="0" placeholder="R$" class="input-focus w-28 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white">
+                  <button class="px-4 py-2.5 bg-violet-500 hover:bg-violet-600 text-white rounded-xl text-sm font-black shadow-sm transition active:scale-95"><i class="fa-solid fa-plus"></i></button>
+                </form>
+              </div>
+            </div>
+
+            <div class="space-y-4">
+              <div class="rounded-2xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+                <div class="px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-slate-200 flex items-center justify-between">
+                  <h4 class="font-extrabold text-sm flex items-center gap-2.5 tracking-tight"><span class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xs shadow-sm"><i class="fa-solid fa-stethoscope"></i></span> Consultas e Vacinas Particulares</h4>
+                  <span id="total-consultas" class="text-sm font-black px-2.5 py-1 rounded-full bg-white border border-amber-200 text-amber-700">R$ 0,00</span>
+                </div>
+                <div id="lista-consultas" class="p-3 space-y-2 max-h-[280px] overflow-auto"></div>
+                <form onsubmit="adicionarGasto(event,'consultas')" class="p-3 bg-slate-50 border-t border-slate-200 flex gap-2">
+                  <input required placeholder="Ex: Dr. Silva - cardio" class="input-focus flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white">
+                  <input required type="number" step="0.01" min="0" placeholder="R$" class="input-focus w-28 px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm outline-none bg-white">
+                  <button class="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-black shadow-sm transition active:scale-95"><i class="fa-solid fa-plus"></i></button>
+                </form>
+              </div>
+
+              <div class="rounded-2xl border-2 border-emerald-200 overflow-hidden bg-white shadow-sm">
+                <div class="px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white flex items-center justify-between">
+                  <h4 class="font-black text-sm flex items-center gap-2"><i class="fa-solid fa-prescription-bottle-medical"></i> Farmácia</h4>
+                  <span id="total-farmacia" class="text-sm font-black bg-white text-emerald-600 px-3 py-1 rounded-full shadow-sm">R$ 0,00</span>
+                </div>
+                <div id="lista-farmacia" class="p-3 space-y-2 max-h-[220px] overflow-auto bg-white"></div>
+                <div class="p-3 bg-emerald-50/70 border-t border-emerald-200 space-y-3">
+                  <label class="group flex flex-col items-center justify-center gap-1.5 px-4 py-4 bg-white border-2 border-dashed border-emerald-300 rounded-2xl cursor-pointer hover:bg-emerald-50 hover:border-emerald-400 transition text-emerald-700">
+                    <span class="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition"><i class="fa-solid fa-camera"></i></span>
+                    <span class="text-sm font-extrabold">Enviar foto do cupom fiscal</span>
+                    <span class="text-xs font-medium text-emerald-700/70">Tire foto nítida • leitura automática</span>
+                    <input type="file" accept="image/*" capture="environment" class="hidden" onchange="processarCupom(event)">
+                  </label>
+                  <p class="text-xs font-medium text-emerald-700/70 text-center"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> Vamos listar os valores — você marca só o que é medicamento</p>
+                  <div id="ocrArea" class="hidden bg-white rounded-2xl border border-emerald-200 overflow-hidden shadow-sm">
+                    <div class="px-3 py-2.5 bg-slate-900 text-white flex items-center justify-between text-xs">
+                      <span class="font-extrabold flex items-center gap-1.5"><i class="fa-solid fa-magnifying-glass"></i> Itens detectados</span>
+                      <button onclick="document.getElementById('ocrArea').classList.add('hidden')" class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="ocrPreview" class="p-3 border-b border-slate-100 hidden">
+                      <img id="ocrImage" class="max-h-40 mx-auto rounded-xl border shadow-sm">
+                      <div id="ocrProgress" class="mt-2 text-xs text-center font-medium text-slate-500"></div>
+                    </div>
+                    <div id="ocrTexto" class="px-3 py-2 text-xs font-mono bg-slate-50 border-b border-slate-100 max-h-24 overflow-auto whitespace-pre-wrap hidden"></div>
+                    <div id="ocrLista" class="p-2 space-y-1.5 max-h-64 overflow-auto"></div>
+                    <div class="p-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
+                      <span id="ocrSelecionadosInfo" class="text-xs font-extrabold text-slate-600">0 selecionados • R$ 0,00</span>
+                      <button onclick="confirmarOCR()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-sm transition active:scale-95">Adicionar selecionados</button>
+                    </div>
+                  </div>
+                  <form onsubmit="adicionarGasto(event,'farmacia')" class="flex gap-2">
+                    <input required placeholder="Ex: Losartana 50mg" class="input-focus flex-1 px-3.5 py-2.5 rounded-xl border border-emerald-200 text-sm outline-none bg-white">
+                    <input required type="number" step="0.01" min="0" placeholder="R$" class="input-focus w-28 px-3.5 py-2.5 rounded-xl border border-emerald-200 text-sm outline-none bg-white">
+                    <button class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black shadow-sm transition active:scale-95"><i class="fa-solid fa-plus"></i></button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABA AUXILIO -->
+      <section id="aba-auxilio" class="space-y-4 hidden">
+        <div>
+          <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-[11px] font-extrabold tracking-widest text-emerald-700 uppercase"><i class="fa-solid fa-hand-holding-dollar"></i> Histórico</div>
+          <h2 class="text-[26px] font-black tracking-tight mt-2 leading-none">Auxílio Saúde por mês</h2>
+          <p class="text-sm text-slate-500 mt-1.5 leading-relaxed">Cada mês tem seu valor. Ao alterar, <b class="text-slate-700">só o mês editado recalcula</b> — o histórico permanece intacto. <span class="text-red-600 font-bold">Positivo = sobrou (ruim)</span>.</p>
+        </div>
+
+        <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center"><i class="fa-solid fa-calendar"></i></span>
+            <div>
+              <p class="text-xs font-extrabold tracking-widest text-slate-500 uppercase">Ano selecionado</p>
+              <p id="auxAnoLabel" class="text-xl font-black tracking-tight leading-none">2026</p>
+            </div>
+            <span class="hidden sm:inline-flex ml-2 px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700"><i class="fa-solid fa-pen mr-1"></i>Edite e pressione Enter</span>
+          </div>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative flex-1 sm:flex-initial">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span>
+              <input id="auxBulkValor" type="number" step="0.01" min="0" placeholder="Valor para replicar" class="input-focus pl-8 pr-3 py-2.5 rounded-xl border border-slate-200 text-sm w-full sm:w-48 bg-white font-bold">
+            </div>
+            <button onclick="replicarAuxilio()" class="px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-sm font-black shadow-sm shadow-sky-500/20 whitespace-nowrap transition active:scale-95"><i class="fa-solid fa-wand-magic-sparkles mr-1.5"></i>Aplicar nos vazios</button>
+          </div>
+        </div>
+
+        <div class="card overflow-hidden">
+          <div class="overflow-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50/80 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
+                <tr class="text-left">
+                  <th class="px-4 py-3 font-extrabold text-slate-600 whitespace-nowrap">Mês</th>
+                  <th class="px-4 py-3 font-extrabold text-slate-600">Auxílio do mês</th>
+                  <th class="px-4 py-3 font-extrabold text-slate-600">Gasto</th>
+                  <th class="px-4 py-3 font-extrabold text-slate-600">Saldo</th>
+                  <th class="px-4 py-3 font-extrabold text-slate-600">Status</th>
+                  <th class="px-4 py-3 font-extrabold text-slate-600">Ação</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaAuxilio" class="divide-y divide-slate-100"></tbody>
+              <tfoot class="bg-slate-900 text-white">
+                <tr>
+                  <td class="px-4 py-3.5 font-black" colspan="1">Total <span id="footAno">2026</span></td>
+                  <td id="footAuxilio" class="px-4 py-3.5 font-black">R$ 0,00</td>
+                  <td id="footGasto" class="px-4 py-3.5 font-black">R$ 0,00</td>
+                  <td id="footSaldo" class="px-4 py-3.5 font-black">R$ 0,00</td>
+                  <td id="footStatus" class="px-4 py-3.5 text-xs">—</td>
+                  <td class="px-4 py-3.5 text-xs text-slate-400">2026.1 + 2026.2</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+          <div class="rounded-2xl bg-gradient-to-br from-red-50 to-orange-50 border border-red-200 p-4 flex gap-3">
+            <span class="w-9 h-9 rounded-xl bg-red-500 text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-triangle-exclamation text-xs"></i></span>
+            <div class="text-xs leading-relaxed text-red-800"><p class="font-black">Atenção ao saldo positivo</p><p class="mt-1 font-medium">Saldo <b>positivo</b> = sobrou auxílio (precisa completar). Em <span class="font-black text-red-600">vermelho</span>. <b>Zerado</b> = perfeito. <b>Negativo</b> = todo auxílio consumido — em <span class="font-black text-emerald-700">verde</span>.</p></div>
+          </div>
+          <div class="rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 border border-sky-200 p-4 flex gap-3">
+            <span class="w-9 h-9 rounded-xl bg-sky-500 text-white flex items-center justify-center shrink-0"><i class="fa-solid fa-clock-rotate-left text-xs"></i></span>
+            <div class="text-xs leading-relaxed text-sky-800"><p class="font-black">Histórico preservado</p><p class="mt-1 font-medium">Ao preencher <b>Julho</b>, <b>Janeiro–Junho continuam intactos</b>. Editar um mês passado recalcula <b>apenas aquele mês e seu semestre</b>.</p></div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-red-200 bg-red-50/60 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center"><i class="fa-solid fa-trash-can"></i></span>
+            <div>
+              <p class="text-sm font-black text-red-800 leading-none">Zona de perigo</p>
+              <p class="text-xs font-medium text-red-700/80 mt-1">Apaga <b>todos</b> os lançamentos e auxílios de <b>todos os anos</b> — volta ao estado inicial.</p>
+            </div>
+          </div>
+          <button onclick="abrirZerarControle()" class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-black shadow-sm transition active:scale-95"><i class="fa-solid fa-triangle-exclamation mr-1.5"></i>Zerar controle</button>
+        </div>
+      </section>
+
+      <p class="text-center text-xs font-medium text-slate-400 py-2">Semestres 2026.1 (Jan–Jun) e 2026.2 (Jul–Dez) • Saldo = Auxílio − Gastos • Positivo = sobrou → ajustar • Zerado/negativo = consumido → ideal</p>
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="fixed bottom-4 right-4 z-50 hidden">
+  <div class="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 text-sm font-bold">
+    <span class="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center"><i class="fa-solid fa-check"></i></span>
+    <span id="toastMsg">Salvo!</span>
+  </div>
+</div>
+
+<dialog id="zerarDialog" class="rounded-[20px] p-0 border-0 shadow-2xl backdrop:bg-slate-900/60 w-[92%] max-w-lg overflow-hidden">
+  <div class="p-6 space-y-4 bg-white">
+    <div class="w-12 h-12 rounded-2xl bg-red-500 text-white flex items-center justify-center text-lg shadow-md"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3 class="font-black text-xl tracking-tight text-slate-900">Zerar controle — tem certeza?</h3>
+    <div class="rounded-xl bg-red-50 border border-red-200 p-3.5 text-sm leading-relaxed text-red-800">
+      <p class="font-black">Esta ação é irreversível.</p>
+      <p class="mt-1 font-medium">Todos os <b>lançamentos</b> (convênios, consultas e vacinas, farmácia) e <b>todos os auxílios cadastrados</b> de <b>todos os meses e anos</b> serão apagados. O app voltará ao estado inicial, como se nunca tivesse sido usado.</p>
+    </div>
+    <p class="text-xs font-semibold text-slate-500">Dica: use <b>Exportar</b> antes se quiser guardar um backup.</p>
+    <div class="flex flex-wrap gap-2 justify-end pt-2">
+      <button type="button" onclick="document.getElementById('zerarDialog').close()" class="px-5 py-2.5 rounded-xl border border-slate-200 font-extrabold text-sm hover:bg-slate-50 transition">Cancelar</button>
+      <button onclick="confirmarZerarControle()" class="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-sm shadow-md transition active:scale-95"><i class="fa-solid fa-trash-can mr-1.5"></i>Sim, apagar tudo</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="editDialog" class="rounded-[20px] p-0 border-0 shadow-2xl backdrop:bg-slate-900/50 w-[92%] max-w-md overflow-hidden">
+  <form method="dialog" onsubmit="salvarEdicao(event)" class="p-6 space-y-4 bg-white">
+    <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center"><i class="fa-solid fa-pen text-xs"></i></div>
+    <h3 class="font-black text-lg tracking-tight">Editar lançamento</h3>
+    <input id="editDesc" required placeholder="Descrição" class="input-focus w-full px-4 py-3 rounded-xl border border-slate-200 outline-none bg-white text-sm font-medium">
+    <div class="relative">
+      <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
+      <input id="editValor" required type="number" step="0.01" min="0" placeholder="Valor" class="input-focus w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 outline-none bg-white text-sm font-bold">
+    </div>
+    <div class="flex gap-2 justify-end pt-2">
+      <button type="button" onclick="document.getElementById('editDialog').close()" class="px-5 py-2.5 rounded-xl border border-slate-200 font-extrabold text-sm hover:bg-slate-50 transition">Cancelar</button>
+      <button class="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-600 text-white font-black text-sm shadow-md shadow-sky-500/20 transition">Salvar</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const CATEGORIAS = {
+  convenio_particular: { label: 'Convênio Particular' },
+  convenio_terceiros: { label: 'Convênio de Terceiros' },
+  consultas: { label: 'Consultas e Vacinas Particulares' },
+  farmacia: { label: 'Farmácia' }
+};
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+let anoAtual = new Date().getFullYear();
+let mesSelecionado = new Date().getMonth();
+let abaAtual = 'semestral';
+let editRef = null;
+let ocrItens = [];
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let dados = { anos: {} };
+
+function toast(msg){
+  const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg;
+  t.classList.remove('hidden'); t.classList.add('fade-in');
+  clearTimeout(t._timer); t._timer=setTimeout(()=> t.classList.add('hidden'), 2200);
+}
+function mesVazio(){ return { auxilio:0, convenio_particular:[], convenio_terceiros:[], consultas:[], farmacia:[] }; }
+function garantirAnoEm(obj, ano){
+  if(!obj.anos[ano]){
+    obj.anos[ano] = { meses: Array.from({length:12}, mesVazio) };
+  }
+  return obj.anos[ano];
+}
+async function carregarDadosDB(){
+  const [rm, ri] = await Promise.all([
+    sb.from('farmacia_meses').select('ano,mes,auxilio'),
+    sb.from('farmacia_itens').select('id,ano,mes,categoria,descricao,valor,data,ordem').order('ordem').order('created_at')
+  ]);
+  if (rm.error) throw new Error('meses: ' + rm.error.message);
+  if (ri.error) throw new Error('itens: ' + ri.error.message);
+  const out = { anos: {} };
+  (rm.data || []).forEach(r => { garantirAnoEm(out, r.ano).meses[r.mes - 1].auxilio = Number(r.auxilio) || 0; });
+  (ri.data || []).forEach(it => {
+    const mes = garantirAnoEm(out, it.ano).meses[it.mes - 1];
+    const cat = CATEGORIAS[it.categoria] ? it.categoria : 'farmacia';
+    mes[cat].push({ id: it.id, desc: it.descricao, valor: Number(it.valor) || 0, data: it.data || '', ordem: it.ordem || 0 });
+  });
+  return out;
+}
+function salvar(){ /* persistência é feita por operação no Supabase */ }
+function proximaOrdem(mesObj, cat){ return (mesObj[cat] || []).reduce((m, it) => Math.max(m, Number(it.ordem) || 0), 0) + 1; }
+async function upsertAuxilio(ano, mesIdx, valor){
+  return sb.from('farmacia_meses').upsert({ ano, mes: mesIdx + 1, auxilio: Number(valor) || 0, updated_at: new Date().toISOString() }, { onConflict: 'ano,mes' });
+}
+function garantirAno(ano){
+  if(!dados.anos[ano]){
+    dados.anos[ano] = { meses: Array.from({length:12}, ()=>({
+      auxilio: 0,
+      convenio_particular: [], convenio_terceiros: [], consultas: [], farmacia: []
+    })) };
+  } else {
+    dados.anos[ano].meses.forEach(m=>{ if(m.auxilio===undefined) m.auxilio=0; });
+  }
+  return dados.anos[ano];
+}
+function getMes(ano, idx){ garantirAno(ano); return dados.anos[ano].meses[idx]; }
+function formatBRL(v){ return Number(v||0).toLocaleString('pt-BR',{style:'currency', currency:'BRL'}); }
+function somarMes(mesObj){ return Object.keys(CATEGORIAS).reduce((acc,k)=> acc + (mesObj[k]||[]).reduce((s,it)=> s + Number(it.valor||0),0),0); }
+function somarSemestre(ano, sem){
+  garantirAno(ano);
+  const ini = sem===1?0:6, fim = sem===1?5:11;
+  let gasto=0, auxilio=0;
+  for(let i=ini;i<=fim;i++){ const m=dados.anos[ano].meses[i]; gasto+=somarMes(m); auxilio+=Number(m.auxilio||0); }
+  return { gasto, auxilio, saldo: auxilio - gasto };
+}
+function saldoVisual(saldo){
+  if(saldo > 0.005) return { cls:'saldo-positivo', texto:`Sobrou ${formatBRL(saldo)}`, badge:'SOBROU', icon:'fa-triangle-exclamation' };
+  if(Math.abs(saldo) < 0.005) return { cls:'saldo-zero', texto:'Zerado — 100% consumido', badge:'ZERADO', icon:'fa-circle-check' };
+  return { cls:'saldo-negativo', texto:`Consumido + excedeu ${formatBRL(Math.abs(saldo))}`, badge:'CONSUMIDO', icon:'fa-check-double' };
+}
+function trocarAba(aba){
+  abaAtual = aba;
+  document.querySelectorAll('[id^="aba-"]').forEach(el=> el.classList.add('hidden'));
+  const target=document.getElementById('aba-'+aba); target.classList.remove('hidden'); target.classList.remove('fade-in'); void target.offsetWidth; target.classList.add('fade-in');
+  document.querySelectorAll('[id^="nav-"]').forEach(el=>{
+    el.className = 'nav-idle w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-left transition-all';
+    const iconWrap=el.querySelector('span.w-9'); if(iconWrap) iconWrap.className='w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0';
+  });
+  const ativo = document.getElementById('nav-'+aba);
+  ativo.className = 'nav-active w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-left transition-all';
+  const aw=ativo.querySelector('span.w-9'); if(aw) aw.className='w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0';
+  if(window.innerWidth<1024) toggleSidebar(false);
+  if(aba==='semestral') setTimeout(()=> renderGrafico(), 80);
+}
+function toggleSidebar(force){
+  const sb=document.getElementById('sidebar'), ov=document.getElementById('overlay');
+  const isOpen=!sb.classList.contains('-translate-x-full');
+  const open= typeof force==='boolean'? force : !isOpen;
+  if(open){ sb.classList.remove('-translate-x-full'); ov.classList.remove('hidden'); }
+  else { sb.classList.add('-translate-x-full'); ov.classList.add('hidden'); }
+}
+function mudarAno(delta){ anoAtual+=delta; renderTudo(); }
+function irParaHoje(){ anoAtual=new Date().getFullYear(); mesSelecionado=new Date().getMonth(); renderTudo(); toast('Voltou para hoje'); }
+async function atualizarAuxilioMes(ano, mesIdx, val){
+  const n=parseFloat(val); const mes=getMes(ano, mesIdx); mes.auxilio=isNaN(n)?0:n;
+  const { error } = await upsertAuxilio(ano, mesIdx, mes.auxilio);
+  if(error){ toast('Erro ao salvar auxílio: '+error.message); return; }
+  renderTudo(); toast(`${MESES[mesIdx]}: auxílio ${formatBRL(mes.auxilio)} salvo`);
+}
+async function replicarAuxilio(){
+  const v=parseFloat(document.getElementById('auxBulkValor').value);
+  if(isNaN(v)){ toast('Informe um valor válido'); return; }
+  garantirAno(anoAtual); let count=0; const linhas=[];
+  dados.anos[anoAtual].meses.forEach((m, idx)=>{ if(!m.auxilio || Number(m.auxilio)===0){ m.auxilio=v; count++; linhas.push({ ano: anoAtual, mes: idx+1, auxilio: v, updated_at: new Date().toISOString() }); }});
+  if(count===0){ toast('Nenhum mês vazio — edite manualmente'); return; }
+  const { error } = await sb.from('farmacia_meses').upsert(linhas, { onConflict: 'ano,mes' });
+  if(error){ toast('Erro ao replicar: '+error.message); return; }
+  renderTudo(); toast(`${count} meses preenchidos com ${formatBRL(v)}`);
+}
+async function adicionarGasto(e, cat){
+  e.preventDefault();
+  const inputs=e.target.querySelectorAll('input');
+  const desc=inputs[0].value.trim(); const valor=parseFloat(inputs[1].value);
+  if(!desc || isNaN(valor)) return;
+  const mes=getMes(anoAtual, mesSelecionado);
+  const { data, error } = await sb.from('farmacia_itens').insert({
+    ano: anoAtual, mes: mesSelecionado+1, categoria: cat, descricao: desc, valor,
+    data: new Date().toISOString().slice(0,10), ordem: proximaOrdem(mes, cat)
+  }).select().single();
+  if(error){ toast('Erro ao salvar: '+error.message); return; }
+  mes[cat].push({ id: data.id, desc: data.descricao, valor: Number(data.valor), data: data.data || '', ordem: data.ordem });
+  e.target.reset(); renderTudo(); toast('Lançamento adicionado');
+}
+async function removerItem(cat, id){
+  if(!confirm('Remover este lançamento?')) return;
+  const { error } = await sb.from('farmacia_itens').delete().eq('id', id);
+  if(error){ toast('Erro ao remover: '+error.message); return; }
+  const mes=getMes(anoAtual, mesSelecionado);
+  mes[cat]=mes[cat].filter(x=> String(x.id)!==String(id));
+  renderTudo(); toast('Removido');
+}
+function abrirEdicao(cat, id){
+  const mes=getMes(anoAtual, mesSelecionado);
+  const item=mes[cat].find(x=> String(x.id)===String(id)); if(!item) return;
+  editRef={cat, id};
+  document.getElementById('editDesc').value=item.desc;
+  document.getElementById('editValor').value=item.valor;
+  document.getElementById('editDialog').showModal();
+}
+async function salvarEdicao(e){
+  e.preventDefault(); if(!editRef) return;
+  const mes=getMes(anoAtual, mesSelecionado);
+  const item=mes[editRef.cat].find(x=> String(x.id)===String(editRef.id));
+  const desc=document.getElementById('editDesc').value.trim();
+  const valor=parseFloat(document.getElementById('editValor').value)||0;
+  if(item){
+    const { error } = await sb.from('farmacia_itens').update({ descricao: desc, valor }).eq('id', item.id);
+    if(error){ toast('Erro ao editar: '+error.message); return; }
+    item.desc=desc; item.valor=valor; renderTudo(); toast('Lançamento atualizado');
+  }
+  document.getElementById('editDialog').close(); editRef=null;
+}
+async function processarCupom(e){
+  const file=e.target.files[0]; if(!file) return;
+  ocrItens=[];
+  const area=document.getElementById('ocrArea'), preview=document.getElementById('ocrPreview'), img=document.getElementById('ocrImage'), prog=document.getElementById('ocrProgress'), textoEl=document.getElementById('ocrTexto'), lista=document.getElementById('ocrLista');
+  area.classList.remove('hidden'); preview.classList.remove('hidden'); textoEl.classList.add('hidden');
+  lista.innerHTML='<p class="text-center text-sm text-slate-500 py-6"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Iniciando leitura...</p>';
+  prog.textContent='Carregando modelo OCR...'; img.src=URL.createObjectURL(file);
+  try{
+    const worker=await Tesseract.createWorker('por',1,{logger:m=>{ if(m.status) prog.textContent=`${m.status} ${m.progress?Math.round(m.progress*100)+'%':''}`; }});
+    const {data:{text}}=await worker.recognize(file); await worker.terminate();
+    textoEl.textContent=text; textoEl.classList.remove('hidden'); prog.textContent='Leitura concluída! Selecione os medicamentos.';
+    const linhas=text.split('\n').map(l=>l.trim()).filter(Boolean);
+    const itens=[]; const valorRegex=/(?:R\$?\s*)?(\d{1,3}(?:\.\d{3})*,\d{2}|\d+,\d{2}|\d+\.\d{2})/g;
+    linhas.forEach((linha, idx)=>{
+      const matches=[...linha.matchAll(valorRegex)];
+      matches.forEach(match=>{
+        const raw=match[1]; let norm=raw;
+        if(norm.includes(',') && norm.includes('.')) norm=norm.replace(/\./g,'').replace(',','.');
+        else if(norm.includes(',')) norm=norm.replace(',','.');
+        const valor=parseFloat(norm);
+        if(isNaN(valor)||valor<=0||valor>10000) return;
+        let desc=linha.replace(match[0],'').replace(/R\$\s*/i,'').replace(/\s{2,}/g,' ').trim();
+        if(desc.length<2) desc=`Item ${idx+1}`; desc=desc.replace(/^[-•\s]+/,'').slice(0,60);
+        itens.push({id:`ocr_${Date.now()}_${idx}_${match.index}`, texto:desc||`Item ${idx+1}`, valor, selecionado:false, linhaOriginal:linha});
+      });
+    });
+    if(itens.length===0){ lista.innerHTML=`<div class="text-center py-4 text-sm text-amber-700 bg-amber-50 rounded-xl border border-amber-200 m-2"><p class="font-black">Nenhum valor no formato R$ detectado.</p><p class="text-xs mt-1 font-medium">Use o formulário manual abaixo.</p></div>`; return; }
+    ocrItens=itens; renderOCRLista();
+  }catch(err){ prog.textContent='Erro: '+err.message; lista.innerHTML=`<p class="text-center text-sm text-red-600 py-4">${err.message}</p>`; }
+  finally{ e.target.value=''; }
+}
+function renderOCRLista(){
+  const lista=document.getElementById('ocrLista');
+  if(ocrItens.length===0){ lista.innerHTML='<p class="text-center text-sm text-slate-400 py-4">Nenhum item</p>'; return; }
+  lista.innerHTML=ocrItens.map((it,i)=>`
+    <label class="ocr-line flex items-center gap-3 px-3 py-2.5 rounded-xl border ${it.selecionado?'border-emerald-300 bg-emerald-50':'border-slate-200 bg-white'} cursor-pointer">
+      <input type="checkbox" ${it.selecionado?'checked':''} onchange="toggleOCR(${i}, this.checked)" class="w-4 h-4 accent-emerald-600 shrink-0">
+      <span class="flex-1 min-w-0">
+        <input value="${escapeHtml(it.texto)}" onchange="ocrItens[${i}].texto=this.value" class="w-full bg-transparent text-sm font-semibold outline-none border-b border-transparent focus:border-emerald-300" placeholder="Descrição">
+        <span class="text-xs text-slate-500 truncate block font-medium">${escapeHtml(it.linhaOriginal)}</span>
+      </span>
+      <span class="flex items-center gap-1 shrink-0">
+        <span class="text-xs font-bold text-slate-500">R$</span>
+        <input type="number" step="0.01" value="${Number(it.valor).toFixed(2)}" onchange="ocrItens[${i}].valor=parseFloat(this.value)||0; atualizarOCRResumo()" class="w-24 px-2.5 py-1.5 rounded-xl border border-slate-200 text-sm font-black text-right outline-none focus:ring-2 focus:ring-emerald-200">
+      </span>
+    </label>`).join('');
+  atualizarOCRResumo();
+}
+function toggleOCR(i, c){ ocrItens[i].selecionado=c; renderOCRLista(); }
+function atualizarOCRResumo(){
+  const sel=ocrItens.filter(x=>x.selecionado); const total=sel.reduce((a,b)=>a+b.valor,0);
+  document.getElementById('ocrSelecionadosInfo').textContent=`${sel.length} selecionados • ${formatBRL(total)}`;
+}
+async function confirmarOCR(){
+  const sel=ocrItens.filter(x=>x.selecionado);
+  if(sel.length===0){ toast('Selecione pelo menos um item'); return; }
+  const mes=getMes(anoAtual, mesSelecionado);
+  const hoje=new Date().toISOString().slice(0,10);
+  let ordem=proximaOrdem(mes,'farmacia');
+  const linhas=sel.map(it=>({ ano: anoAtual, mes: mesSelecionado+1, categoria: 'farmacia', descricao: it.texto||'Medicamento', valor: Number(it.valor), data: hoje, ordem: ordem++ }));
+  const { data, error } = await sb.from('farmacia_itens').insert(linhas).select();
+  if(error){ toast('Erro ao salvar OCR: '+error.message); return; }
+  (data||[]).forEach(r=> mes.farmacia.push({ id:r.id, desc:r.descricao, valor:Number(r.valor), data:r.data||'', ordem:r.ordem }));
+  document.getElementById('ocrArea').classList.add('hidden'); ocrItens=[]; renderTudo(); toast(`${sel.length} itens adicionados à farmácia`);
+}
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+let chartSem1=null, chartSem2=null;
+function renderTudo(){
+  garantirAno(anoAtual);
+  document.getElementById('anoSidebar').textContent=anoAtual;
+  document.getElementById('auxAnoLabel').textContent=anoAtual;
+  document.getElementById('footAno').textContent=anoAtual;
+  const ga=document.getElementById('grafAnoLabel'); if(ga) ga.textContent=anoAtual;
+  const g1t=document.getElementById('grafSem1Titulo'); if(g1t) g1t.textContent=`${anoAtual}.1`;
+  const g2t=document.getElementById('grafSem2Titulo'); if(g2t) g2t.textContent=`${anoAtual}.2`;
+  document.getElementById('sem1Titulo').textContent=`${anoAtual}.1`;
+  document.getElementById('sem2Titulo').textContent=`${anoAtual}.2`;
+  renderSemestral(); renderMensal(); renderAuxilioTabela(); renderGrafico();
+}
+function renderSemestral(){
+  const s1=somarSemestre(anoAtual,1), s2=somarSemestre(anoAtual,2);
+  document.getElementById('sem1Gasto').textContent=formatBRL(s1.gasto);
+  document.getElementById('sem1Auxilio').textContent=formatBRL(s1.auxilio);
+  document.getElementById('sem1Saldo').textContent=formatBRL(s1.saldo);
+  const v1=saldoVisual(s1.saldo);
+  document.getElementById('sem1SaldoCard').className='rounded-2xl border p-3.5 transition-colors '+v1.cls;
+  document.getElementById('sem1SaldoLeg').textContent=v1.texto;
+  document.getElementById('sem1Badge').innerHTML=`<i class="fa-solid ${v1.icon} mr-1"></i>${v1.badge}`;
+  document.getElementById('sem1Badge').className='px-3 py-1.5 rounded-full text-xs font-black border shadow-sm '+(s1.saldo>0?'bg-red-500 text-white border-red-600':'bg-emerald-500 text-white border-emerald-600');
+  const pct1=s1.auxilio>0? Math.min(100,(s1.gasto/s1.auxilio)*100) : (s1.gasto>0?100:0);
+  document.getElementById('sem1BarGasto').style.width=Math.min(100,pct1)+'%';
+  document.getElementById('sem1BarSobra').style.width=s1.saldo>0 && s1.auxilio>0 ? Math.min(100,(s1.saldo/s1.auxilio)*100)+'%' : '0%';
+  document.getElementById('sem1Pct').textContent=Math.round(pct1)+'% consumido';
+  document.getElementById('sem1Meses').innerHTML=Array.from({length:6},(_,i)=>{
+    const m=getMes(anoAtual,i); const saldo=Number(m.auxilio||0)-somarMes(m); const isPos=saldo>0;
+    return `<div class="rounded-xl border p-2.5 text-center ${isPos?'bg-red-50 border-red-200':'bg-slate-50 border-slate-200'}"><p class="text-[11px] font-extrabold tracking-widest text-slate-500 uppercase">${MESES[i].slice(0,3)}</p><p class="font-black text-xs ${isPos?'text-red-600':'text-emerald-600'}">${formatBRL(saldo)}</p></div>`;
+  }).join('');
+  document.getElementById('sem2Gasto').textContent=formatBRL(s2.gasto);
+  document.getElementById('sem2Auxilio').textContent=formatBRL(s2.auxilio);
+  document.getElementById('sem2Saldo').textContent=formatBRL(s2.saldo);
+  const v2=saldoVisual(s2.saldo);
+  document.getElementById('sem2SaldoCard').className='rounded-2xl border p-3.5 transition-colors '+v2.cls;
+  document.getElementById('sem2SaldoLeg').textContent=v2.texto;
+  document.getElementById('sem2Badge').innerHTML=`<i class="fa-solid ${v2.icon} mr-1"></i>${v2.badge}`;
+  document.getElementById('sem2Badge').className='px-3 py-1.5 rounded-full text-xs font-black border shadow-sm '+(s2.saldo>0?'bg-red-500 text-white border-red-600':'bg-emerald-500 text-white border-emerald-600');
+  const pct2=s2.auxilio>0? Math.min(100,(s2.gasto/s2.auxilio)*100) : (s2.gasto>0?100:0);
+  document.getElementById('sem2BarGasto').style.width=Math.min(100,pct2)+'%';
+  document.getElementById('sem2BarSobra').style.width=s2.saldo>0 && s2.auxilio>0 ? Math.min(100,(s2.saldo/s2.auxilio)*100)+'%' : '0%';
+  document.getElementById('sem2Pct').textContent=Math.round(pct2)+'% consumido';
+  document.getElementById('sem2Meses').innerHTML=Array.from({length:6},(_,i)=>{
+    const idx=i+6; const m=getMes(anoAtual,idx); const saldo=Number(m.auxilio||0)-somarMes(m); const isPos=saldo>0;
+    return `<div class="rounded-xl border p-2.5 text-center ${isPos?'bg-red-50 border-red-200':'bg-slate-50 border-slate-200'}"><p class="text-[11px] font-extrabold tracking-widest text-slate-500 uppercase">${MESES[idx].slice(0,3)}</p><p class="font-black text-xs ${isPos?'text-red-600':'text-emerald-600'}">${formatBRL(saldo)}</p></div>`;
+  }).join('');
+}
+function renderMensal(){
+  const meses=dados.anos[anoAtual].meses;
+  const mesObj=getMes(anoAtual, mesSelecionado);
+  const totalMes=somarMes(mesObj); const auxMes=Number(mesObj.auxilio||0); const saldoMes=auxMes-totalMes;
+  document.getElementById('resumoMesTitulo').textContent=`${MESES[mesSelecionado]} de ${anoAtual} • Auxílio ${formatBRL(auxMes)}`;
+  document.getElementById('resumoMesTotal').textContent=`Gasto ${formatBRL(totalMes)}`;
+  const resumoSaldo=document.getElementById('resumoMesSaldo');
+  const vRes=saldoVisual(saldoMes);
+  resumoSaldo.textContent=`Saldo ${formatBRL(saldoMes)} • ${vRes.badge}`;
+  resumoSaldo.className='text-xs font-black px-3 py-1.5 rounded-full border whitespace-nowrap '+vRes.cls;
+  document.getElementById('gridMeses').innerHTML = meses.map((mes,i)=>{
+    const total=somarMes(mes); const aux=Number(mes.auxilio||0); const saldo=aux-total;
+    const isSel=i===mesSelecionado; const qtd=Object.keys(CATEGORIAS).reduce((a,k)=> a+(mes[k]||[]).length,0);
+    const v=saldoVisual(saldo); const isPos=saldo>0;
+    return `
+      <button onclick="selecionarMes(${i})" class="month-card text-left rounded-[18px] border-2 p-4 bg-white ${isSel?'border-sky-500 bg-sky-50/70 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/20':'border-slate-200 hover:border-slate-300 hover:shadow-sm'}">
+        <div class="flex items-center justify-between">
+          <span class="font-black text-sm tracking-tight ${isSel?'text-sky-700':'text-slate-900'}">${MESES[i]}</span>
+          <span class="text-xs font-bold px-2.5 py-1 rounded-full border ${qtd? 'bg-white border-slate-200 text-slate-600':'bg-slate-100 border-transparent text-slate-400'}">${qtd} itens</span>
+        </div>
+        <p class="text-[11px] font-semibold text-slate-500 mt-1 flex items-center gap-1"><i class="fa-solid fa-hand-holding-dollar text-[10px]"></i> Auxílio ${formatBRL(aux)}</p>
+        <p class="text-[17px] font-black tracking-tight mt-1 ${total? 'text-slate-900':'text-slate-400'}">${formatBRL(total)}</p>
+        <div class="mt-2.5">
+          <span class="text-xs font-black px-2.5 py-1 rounded-full border inline-flex items-center gap-1 ${v.cls}"><i class="fa-solid ${v.icon} text-[10px]"></i>${formatBRL(saldo)} ${isPos?'sobrou': saldo===0?'zerado':'consumido'}</span>
+        </div>
+        <div class="mt-2.5 h-1.5 bg-slate-100 rounded-full overflow-hidden p-0.5">
+          <div class="h-full rounded-full transition-all duration-500 ${isPos?'bg-red-500':'bg-emerald-500'}" style="width:${aux>0? Math.min(100,(total/aux)*100): (total?100:0)}%"></div>
+        </div>
+        ${isPos? '<p class="text-[11px] font-bold text-red-600 mt-2 flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i>Precisa consumir o restante</p>': '<p class="text-[11px] font-bold text-emerald-600 mt-2 flex items-center gap-1"><i class="fa-solid fa-check"></i>OK — auxílio consumido</p>'}
+      </button>`;
+  }).join('');
+  document.getElementById('detalheTitulo').textContent=`${MESES[mesSelecionado]} de ${anoAtual}`;
+  document.getElementById('detalheAuxilioInfo').innerHTML=`<i class="fa-solid fa-hand-holding-dollar"></i> Auxílio do mês: <b>${formatBRL(auxMes)}</b> • edite na aba Auxílio Saúde`;
+  document.getElementById('detalheTotal').textContent=formatBRL(totalMes);
+  const elSaldo=document.getElementById('detalheSaldo');
+  const vDet=saldoVisual(saldoMes);
+  elSaldo.textContent=`Saldo ${formatBRL(saldoMes)} • ${vDet.badge}`;
+  elSaldo.className='text-xs font-black px-3 py-1.5 rounded-full border inline-block mt-1.5 bg-white shadow-sm '+vDet.cls;
+  for(const cat of Object.keys(CATEGORIAS)){
+    const listaEl=document.getElementById('lista-'+cat), totalEl=document.getElementById('total-'+cat);
+    const itens=mesObj[cat]||[]; const tot=itens.reduce((a,b)=>a+Number(b.valor),0);
+    totalEl.textContent=formatBRL(tot);
+    if(itens.length===0) listaEl.innerHTML=`<div class="flex flex-col items-center justify-center py-8 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50"><span class="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400"><i class="fa-regular fa-folder-open text-xs"></i></span><p class="text-xs font-bold text-slate-500 mt-2">Nenhum lançamento</p><p class="text-xs text-slate-400">Adicione abaixo</p></div>`;
+    else listaEl.innerHTML=itens.map(it=>`
+      <div class="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm transition group">
+        <div class="flex-1 min-w-0"><p class="text-sm font-semibold truncate tracking-tight">${escapeHtml(it.desc)}</p><p class="text-xs font-medium text-slate-500">${it.data||''}</p></div>
+        <span class="font-black text-sm tracking-tight">${formatBRL(Number(it.valor))}</span>
+        <button onclick="abrirEdicao('${cat}','${it.id}')" class="w-8 h-8 rounded-xl bg-slate-50 hover:bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 transition"><i class="fa-solid fa-pen text-[11px]"></i></button>
+        <button onclick="removerItem('${cat}','${it.id}')" class="w-8 h-8 rounded-xl bg-white hover:bg-red-50 border border-slate-200 hover:border-red-200 flex items-center justify-center text-slate-400 hover:text-red-600 transition"><i class="fa-solid fa-trash text-[11px]"></i></button>
+      </div>`).join('');
+  }
+}
+function selecionarMes(idx){ mesSelecionado=idx; renderTudo(); document.getElementById('detalheMes').scrollIntoView({behavior:'smooth', block:'start'}); }
+function renderAuxilioTabela(){
+  garantirAno(anoAtual);
+  const tbody=document.getElementById('tabelaAuxilio');
+  let totalAux=0, totalGasto=0;
+  tbody.innerHTML = dados.anos[anoAtual].meses.map((m,i)=>{
+    const gasto=somarMes(m); const aux=Number(m.auxilio||0); const saldo=aux-gasto; totalAux+=aux; totalGasto+=gasto;
+    const v=saldoVisual(saldo); const sem=i<6?`${anoAtual}.1`:`${anoAtual}.2`;
+    const isSel=i===mesSelecionado;
+    const status = saldo>0 ? `<span class="px-2.5 py-1 rounded-full border text-xs font-black saldo-positivo"><i class="fa-solid fa-triangle-exclamation mr-1"></i>SOBROU</span>` : saldo===0 && aux!==0 ? `<span class="px-2.5 py-1 rounded-full border text-xs font-black saldo-zero"><i class="fa-solid fa-check mr-1"></i>ZERADO</span>` : aux===0 && gasto===0 ? `<span class="px-2.5 py-1 rounded-full border text-xs font-black bg-slate-50 border-slate-200 text-slate-500">VAZIO</span>` : `<span class="px-2.5 py-1 rounded-full border text-xs font-black saldo-negativo"><i class="fa-solid fa-check-double mr-1"></i>CONSUMIDO</span>`;
+    return `<tr class="${isSel?'bg-sky-50/70': i%2===0?'bg-white':'bg-slate-50/40'} hover:bg-sky-50/40 transition">
+      <td class="px-4 py-3 font-black whitespace-nowrap tracking-tight">${MESES[i]} <span class="ml-1 text-xs font-bold px-1.5 py-0.5 rounded bg-slate-900 text-white">${sem}</span></td>
+      <td class="px-4 py-3">
+        <div class="relative w-36">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400">R$</span>
+          <input type="number" step="0.01" min="0" value="${aux? aux.toFixed(2):''}" placeholder="0,00"
+            onchange="atualizarAuxilioMes(${anoAtual}, ${i}, this.value)"
+            onkeydown="if(event.key==='Enter'){this.blur()}"
+            class="input-focus w-full pl-8 pr-3 py-2 rounded-xl border ${aux===0?'border-amber-300 bg-amber-50':'border-slate-200 bg-white'} text-sm font-black outline-none shadow-sm">
+        </div>
+      </td>
+      <td class="px-4 py-3 font-bold">${formatBRL(gasto)}</td>
+      <td class="px-4 py-3 font-black ${saldo>0?'text-red-600':'text-emerald-600'}">${formatBRL(saldo)}</td>
+      <td class="px-4 py-3">${status}<div class="text-[11px] font-medium text-slate-500 mt-1 leading-tight">${v.texto}</div></td>
+      <td class="px-4 py-3"><button onclick="mesSelecionado=${i}; trocarAba('mensal'); renderTudo(); setTimeout(()=>document.getElementById('detalheMes').scrollIntoView({behavior:'smooth'}),100)" class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-black hover:bg-slate-900 hover:text-white hover:border-slate-900 transition">ver <i class="fa-solid fa-arrow-right ml-1 text-[10px]"></i></button></td>
+    </tr>`;
+  }).join('');
+  const saldoTotal=totalAux-totalGasto;
+  document.getElementById('footAuxilio').textContent=formatBRL(totalAux);
+  document.getElementById('footGasto').textContent=formatBRL(totalGasto);
+  document.getElementById('footSaldo').textContent=formatBRL(saldoTotal);
+  const vf=saldoVisual(saldoTotal);
+  document.getElementById('footStatus').innerHTML=`<span class="px-2.5 py-1 rounded-full border text-xs font-black ${vf.cls}">${vf.badge}</span> <span class="ml-1 font-bold">${vf.texto}</span>`;
+}
+function criarGraficoSemestre(canvasId, labels, totais, auxs, saldos){
+  const ctx=document.getElementById(canvasId); if(!ctx) return null;
+  return new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Gastos', data:totais, backgroundColor: canvasId==='graficoSem1' ? '#0ea5e9' : '#8b5cf6', borderRadius:7, borderSkipped:false, barPercentage:0.62, categoryPercentage:0.78, order:2 },
+        { label:'Auxílio', data:auxs, type:'line', borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.10)', fill:true, tension:0.35, pointRadius:4, pointBackgroundColor:'#10b981', pointBorderColor:'white', pointBorderWidth:2, borderWidth:2.5, order:1 },
+        { label:'Saldo', data:saldos, type:'line', borderColor:'#f59e0b', backgroundColor:'transparent', tension:0.35, pointRadius:3, pointBackgroundColor: saldos.map(v=> v>0?'#dc2626':'#059669'), borderWidth:2, order:0 }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{ backgroundColor:'#0f172a', titleFont:{weight:'800'}, bodyFont:{weight:'600'}, padding:10, cornerRadius:12, displayColors:true, callbacks:{label:(c)=> ` ${c.dataset.label}: ${formatBRL(c.parsed.y)}`}}
+      },
+      scales:{
+        y:{ beginAtZero:true, grid:{color:'#f1f5f9'}, ticks:{callback:v=>'R$ '+v, font:{weight:'600'}}, border:{display:false} },
+        x:{ grid:{display:false}, ticks:{font:{weight:'700'}}, border:{display:false} }
+      }
+    }
+  });
+}
+function renderGrafico(){
+  const meses=dados.anos[anoAtual].meses;
+  const labels1=MESES.slice(0,6).map(m=>m.slice(0,3));
+  const labels2=MESES.slice(6,12).map(m=>m.slice(0,3));
+  const totais1=meses.slice(0,6).map(m=> somarMes(m));
+  const totais2=meses.slice(6,12).map(m=> somarMes(m));
+  const auxs1=meses.slice(0,6).map(m=> Number(m.auxilio||0));
+  const auxs2=meses.slice(6,12).map(m=> Number(m.auxilio||0));
+  const saldos1=totais1.map((t,i)=> auxs1[i]-t);
+  const saldos2=totais2.map((t,i)=> auxs2[i]-t);
+  if(chartSem1) chartSem1.destroy();
+  if(chartSem2) chartSem2.destroy();
+  chartSem1=criarGraficoSemestre('graficoSem1', labels1, totais1, auxs1, saldos1);
+  chartSem2=criarGraficoSemestre('graficoSem2', labels2, totais2, auxs2, saldos2);
+}
+function abrirZerarControle(){
+  document.getElementById('zerarDialog').showModal();
+}
+async function confirmarZerarControle(){
+  const d1=await sb.from('farmacia_itens').delete().gte('ano', 0);
+  const d2=await sb.from('farmacia_meses').delete().gte('ano', 0);
+  if(d1.error || d2.error){ toast('Erro ao zerar: '+((d1.error||d2.error).message)); return; }
+  dados={ anos:{} };
+  // garantir ano atual limpo
+  garantirAno(anoAtual);
+  document.getElementById('zerarDialog').close();
+  renderTudo();
+  toast('Controle zerado — todos os dados apagados');
+}
+function exportarJSON(){
+  const blob=new Blob([JSON.stringify(dados,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`gastos-saude-${anoAtual}.json`; a.click(); toast('Arquivo exportado');
+}
+function importarJSON(e){
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader();
+  r.onload=async ()=>{
+    try{
+      const parsed=JSON.parse(r.result);
+      if(!parsed.anos){ toast('Arquivo inválido'); return; }
+      const meses=[], itens=[];
+      Object.keys(parsed.anos).forEach(anoStr=>{
+        const ano=Number(anoStr);
+        (parsed.anos[anoStr].meses||[]).forEach((m, idx)=>{
+          meses.push({ ano, mes: idx+1, auxilio: Number(m.auxilio)||0, updated_at: new Date().toISOString() });
+          ['convenio_particular','convenio_terceiros','consultas','farmacia'].forEach(cat=>{
+            (m[cat]||[]).forEach((it, i)=> itens.push({
+              ano, mes: idx+1, categoria: cat,
+              descricao: it.desc || 'Item', valor: Number(it.valor)||0,
+              data: it.data || null, ordem: i+1
+            }));
+          });
+        });
+      });
+      const d1=await sb.from('farmacia_itens').delete().gte('ano', 0);
+      const d2=await sb.from('farmacia_meses').delete().gte('ano', 0);
+      if(d1.error || d2.error) throw new Error((d1.error||d2.error).message);
+      if(meses.length){ const ins=await sb.from('farmacia_meses').insert(meses); if(ins.error) throw new Error(ins.error.message); }
+      for(let i=0;i<itens.length;i+=500){
+        const ins=await sb.from('farmacia_itens').insert(itens.slice(i, i+500));
+        if(ins.error) throw new Error(ins.error.message);
+      }
+      dados=await carregarDadosDB();
+      renderTudo(); toast('Dados importados com sucesso');
+    }catch(err){ toast('Erro: '+err.message); }
+  }; r.readAsText(file); e.target.value='';
+}
+(async function boot(){
+  try { dados = await carregarDadosDB(); }
+  catch(e){ console.error(e); alert('Erro ao carregar dados do Supabase: ' + e.message); }
+  garantirAno(anoAtual); trocarAba('semestral'); renderTudo();
+})();
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ const TELAS = [
   { id: 'pendencias', label: '✅ Pendências', href: 'pendencias.html' },
   { id: 'planner', label: '📅 Planner', href: 'planner.html' },
   { id: 'planner-jp', label: '📅 Planner JP', href: 'planner-jp.html' },
+  { id: 'farmacia', label: '💊 Farmácia', href: 'farmacia/index.html' },
   // Ex futuro: { id: 'estudos', label: '📚 Estudos', href: 'estudos.html' },
 ];
 
