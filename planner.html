@@ -28,7 +28,7 @@
 @media(max-width:700px){.dia{min-height:80px}}
 </style>
 </head>
-<body data-tela="planner">
+<body data-tela="planner" data-planner="principal">
 <header>
   <div class="wrap">
     <h1>agenda BRUNA <small>Planner mensal • sem vínculo com Pendências</small></h1>
@@ -54,7 +54,7 @@
       <div><label>Prioridade</label><select id="evPrior"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select></div>
     </div>
     <label>Observação</label><input id="evObs" placeholder="Opcional">
-    <div class="row" style="margin-top:10px"><button id="btnSalvar">Salvar</button><button class="sec" id="btnExcluir" style="display:none">Excluir</button><button class="sec" id="btnCancelar" style="display:none">Cancelar</button></div>
+    <div class="row" style="margin-top:10px"><button id="btnSalvar">Salvar</button><button class="sec" id="btnRepetir" style="display:none">🔁 Repetir</button><button class="sec" id="btnExcluir" style="display:none">Excluir</button><button class="sec" id="btnCancelar" style="display:none">Cancelar</button></div>
   </div>
   <div class="folha">
     <div class="cal-head"><h2 id="folhaTitulo" style="margin:0"></h2><span class="foot" id="totLabel"></span></div>
