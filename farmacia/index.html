@@ -46,7 +46,7 @@
 <div class="lg:hidden sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-slate-200/70 flex items-center justify-between px-4 py-3">
   <div class="flex items-center gap-3">
     <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white shadow-md"><i class="fa-solid fa-heart-pulse text-sm"></i></div>
-    <div><p class="font-black text-[15px] leading-none">Saúde Financeira</p><p class="text-[11px] text-slate-500 font-medium">2026.1 • 2026.2</p></div>
+    <div><p class="font-black text-[15px] leading-none">Auxílio Saúde</p><p class="text-[11px] text-slate-500 font-medium">2026.1 • 2026.2</p></div>
   </div>
   <button onclick="toggleSidebar()" class="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow"><i class="fa-solid fa-bars text-xs"></i></button>
 </div>
@@ -64,18 +64,20 @@
       </div>
       <div class="mt-4 flex items-center gap-2 text-[11px] font-semibold text-slate-500">
 	  <a href="../index.html" class="mx-1 mt-4 flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all no-print">
-        <span class="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0"><i class="fa-solid fa-arrow-left text-sm"></i></span>
-        <span class="leading-tight">Voltar para agenda</span>
+	  
+	  <button onclick="abrirZerarControle()" class="w-full py-2.5 rounded-xl bg-white border border-red-200 text-red-600 text-xs font-black hover:bg-red-50 hover:border-red-300 transition shadow-sm active:scale-[0.98] flex items-center justify-center gap-1.5"><i class="fa-solid fa-trash-can"></i>Voltar para AGENDA</button>
+	  
+        <!--<span class="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0"><i class="fa-solid fa-arrow-left text-sm"></i></span>
+        <span class="leading-tight">Voltar para AGENDA</span>-->
       </a>
-       <!-- <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Dados online (Supabase) • OCR no dispositivo -->
       </div>
     </div>
 
     <nav class="flex-1 px-3 py-3 space-y-1 overflow-auto">
-      <p class="px-3 pt-2 pb-2 text-[11px] font-extrabold tracking-widest text-slate-400 uppercase">Navegação</p>
+      <!--<p class="px-3 pt-2 pb-2 text-[11px] font-extrabold tracking-widest text-slate-400 uppercase">Navegação</p>-->
       <button id="nav-semestral" onclick="trocarAba('semestral')" class="nav-active w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-left transition-all">
         <span class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><i class="fa-solid fa-chart-column text-sm"></i></span>
-        <span class="leading-tight">Visão Semestral <span class="block text-xs font-medium opacity-80">2026.1 • 2026.2</span></span>
+        <span class="leading-tight">Visão Semestral <!--<span class="block text-xs font-medium opacity-80">2026.1 • 2026.2</span>--></span>
         <i class="fa-solid fa-chevron-right ml-auto text-xs opacity-60 hidden group-[.nav-active]:block"></i>
       </button>
       <button id="nav-mensal" onclick="trocarAba('mensal')" class="nav-idle w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-left transition-all">
@@ -104,10 +106,10 @@
         <p class="text-xs leading-relaxed text-amber-800/80 mt-1"><span class="font-bold text-red-600">Positivo = sobrou (ruim)</span> • <span class="font-bold text-emerald-700">Zerado/negativo = consumido (bom)</span>. Meta: zerar o auxílio.</p>
       </div>
 
-      <a href="../index.html" class="mx-1 mt-4 flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all no-print">
+     <!-- <a href="../index.html" class="mx-1 mt-4 flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all no-print">
         <span class="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0"><i class="fa-solid fa-arrow-left text-sm"></i></span>
         <span class="leading-tight">Voltar para agenda</span>
-      </a>
+      </a>-->
     </nav>
 
     <div class="p-3 border-t border-slate-200/70 space-y-2.5 no-print bg-slate-50/50">
@@ -119,7 +121,7 @@
         </label>
       </div>
       <button onclick="abrirZerarControle()" class="w-full py-2.5 rounded-xl bg-white border border-red-200 text-red-600 text-xs font-black hover:bg-red-50 hover:border-red-300 transition shadow-sm active:scale-[0.98] flex items-center justify-center gap-1.5"><i class="fa-solid fa-trash-can"></i> Zerar controle</button>
-      <p class="text-[11px] leading-tight text-slate-400 text-center font-medium">Dados salvos automaticamente<br><span class="text-slate-500">Semestres 2026.1 (Jan-Jun) • 2026.2 (Jul-Dez)</span></p>
+      <!--<p class="text-[11px] leading-tight text-slate-400 text-center font-medium">Dados salvos automaticamente<br><span class="text-slate-500">Semestres 2026.1 (Jan-Jun) • 2026.2 (Jul-Dez)</span></p>-->
     </div>
   </aside>
 
